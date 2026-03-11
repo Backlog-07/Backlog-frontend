@@ -1,0 +1,433 @@
+{
+  "products": [
+    {
+      "id": "p1773239412212280",
+      "name": "Sport Jacket",
+      "price": "2190",
+      "desc": "Rocky-Sports",
+      "sizes": [
+        "M",
+        "XXL",
+        "XL",
+        "L"
+      ],
+      "stock": 6,
+      "available": true,
+      "preOrder": false,
+      "imageUrl": "/uploads/1773239412128-sport-jacket-clothing-2.jpg",
+      "glbUrl": null
+    },
+    {
+      "id": "p1773239352094980",
+      "name": "Caro-shirt",
+      "price": "899",
+      "desc": "Men_Shirt",
+      "sizes": [
+        "XS",
+        "XXL",
+        "M",
+        "L",
+        "XL"
+      ],
+      "stock": 8,
+      "available": true,
+      "preOrder": false,
+      "imageUrl": null,
+      "glbUrl": "/uploads/1773239352043-mens_caro_flannel_shirt.glb"
+    },
+    {
+      "id": "p177323929539353",
+      "name": "Puffy jacket",
+      "price": "999",
+      "desc": "Puffer-Jacket",
+      "sizes": [
+        "L"
+      ],
+      "stock": 5,
+      "available": true,
+      "preOrder": false,
+      "imageUrl": null,
+      "glbUrl": "/uploads/1773239295357-men_s_black_puffy_jacket.glb"
+    },
+    {
+      "id": "p1773239199173184",
+      "name": "Fleece-Jacket",
+      "price": "599",
+      "desc": "Jacket-fleece",
+      "sizes": [
+        "XL",
+        "M",
+        "L"
+      ],
+      "stock": 2,
+      "available": true,
+      "preOrder": true,
+      "imageUrl": null,
+      "glbUrl": "/uploads/1773239199138-fleece_jacket.glb"
+    },
+    {
+      "id": "p1773239133433495",
+      "name": "Leather Jacket",
+      "price": "2999",
+      "desc": "Beautiful Leather - Jacket",
+      "sizes": [
+        "L",
+        "XXL"
+      ],
+      "stock": 3,
+      "available": true,
+      "preOrder": true,
+      "imageUrl": "/uploads/1773239133360-aa12723e-543c-484b-b7c7-28a8f491722a.jpg",
+      "glbUrl": null
+    }
+  ],
+  "admin": {
+    "username": "admin",
+    "password": "pass",
+    "token": "admintoken-1767117215616-2284"
+  },
+  "orders": [
+    {
+      "id": "o1767461624223-9649",
+      "items": [
+        {
+          "id": "p1",
+          "qty": 3
+        }
+      ],
+      "total": 387,
+      "createdAt": "2026-01-03T17:33:44.225Z"
+    },
+    {
+      "id": 1768039557382,
+      "items": [
+        {
+          "id": "p3",
+          "name": "MIDNIGHT SOUL",
+          "price": "149",
+          "size": "L",
+          "imageUrl": null,
+          "qty": 1
+        },
+        {
+          "id": "p1",
+          "name": "SHADOW ESSENCE",
+          "price": "499",
+          "size": "S",
+          "imageUrl": null,
+          "qty": 2
+        },
+        {
+          "id": "p1",
+          "name": "SHADOW ESSENCE",
+          "price": "499",
+          "size": "XL",
+          "imageUrl": null,
+          "qty": 1
+        }
+      ],
+      "total": 1745,
+      "name": "Prabhdeep singh jassal",
+      "email": "psingh_mca24@thapar.edu",
+      "phone": "1234567899",
+      "address": "B5/45",
+      "city": "Nabha",
+      "state": "Punjab",
+      "pincode": "147201",
+      "status": "pending",
+      "createdAt": "2026-01-10T10:05:57.382Z"
+    },
+    {
+      "id": 1768040070770,
+      "items": [
+        {
+          "id": "p176751627815149",
+          "name": "test item phone",
+          "price": "1999",
+          "size": "XXL",
+          "imageUrl": "/uploads/1767516278113-IMG_2436.HEIC",
+          "qty": 1
+        }
+      ],
+      "total": 2098,
+      "name": "Prabhdeep singh jassal",
+      "email": "ggchghvvghhgv@gmail.com",
+      "phone": "1234567899",
+      "address": "B5/45",
+      "city": "Nabha",
+      "state": "Punjab",
+      "pincode": "147201",
+      "status": "pending",
+      "createdAt": "2026-01-10T10:14:30.770Z"
+    },
+    {
+      "id": 1768040268242,
+      "items": [
+        {
+          "id": "p176751627815149",
+          "name": "test item phone",
+          "price": "1999",
+          "size": "XXL",
+          "imageUrl": "/uploads/1767516278113-IMG_2436.HEIC",
+          "qty": 1
+        }
+      ],
+      "total": 2098,
+      "name": "Prabhdeep singh jassal",
+      "email": "ggchghvvghhgv@gmail.com",
+      "phone": "1234567899",
+      "address": "B5/45",
+      "city": "Nabha",
+      "state": "Punjab",
+      "pincode": "147201",
+      "status": "pending",
+      "createdAt": "2026-01-10T10:17:48.242Z"
+    },
+    {
+      "id": 1768124799984,
+      "items": [
+        {
+          "id": "p1768124769702404",
+          "name": "Stock test",
+          "price": "1000",
+          "size": "M",
+          "imageUrl": null,
+          "qty": 14
+        }
+      ],
+      "total": 14099,
+      "name": "Prabhdeep singh jassal",
+      "email": "ggchghvvghhgv@gmail.com",
+      "phone": "1234567899",
+      "address": "B5/45",
+      "city": "Nabha",
+      "state": "Punjab",
+      "pincode": "147201",
+      "status": "pending",
+      "createdAt": "2026-01-11T09:46:39.984Z"
+    },
+    {
+      "id": 1769445228113,
+      "items": [
+        {
+          "id": "p1768125447049897",
+          "name": "test stock",
+          "price": "999",
+          "size": "XXL",
+          "imageUrl": "/uploads/1769415781680-QUantum.jpg",
+          "qty": 1,
+          "stockAvailable": 10
+        },
+        {
+          "id": "p2",
+          "name": "T-SHIRT NOIR",
+          "price": "89",
+          "size": "S",
+          "imageUrl": null,
+          "qty": 2,
+          "stockAvailable": 8
+        }
+      ],
+      "total": 1276,
+      "name": "Prabhdeep singh jassal",
+      "email": "ggchghvvghhgv@gmail.com",
+      "phone": "1234567899",
+      "address": "B5/45",
+      "city": "Nabha",
+      "state": "Punjab",
+      "pincode": "147201",
+      "status": "pending",
+      "createdAt": "2026-01-26T16:33:48.113Z"
+    },
+    {
+      "id": 1769445314512,
+      "items": [
+        {
+          "id": "p1768125447049897",
+          "name": "test stock",
+          "price": "999",
+          "size": "XXL",
+          "imageUrl": "/uploads/1769415781680-QUantum.jpg",
+          "qty": 1,
+          "stockAvailable": 9
+        }
+      ],
+      "total": 1098,
+      "name": "Prabhdeep singh jassal",
+      "email": "ggchghvvghhgv@gmail.com",
+      "phone": "1234567899",
+      "address": "B5/45",
+      "city": "Nabha",
+      "state": "Punjab",
+      "pincode": "147201",
+      "status": "pending",
+      "createdAt": "2026-01-26T16:35:14.512Z"
+    },
+    {
+      "id": 1769445937481,
+      "items": [
+        {
+          "id": "p1768125447049897",
+          "name": "test stock",
+          "price": "999",
+          "size": "XXL",
+          "imageUrl": "/uploads/1769415781680-QUantum.jpg",
+          "qty": 1,
+          "stockAvailable": 8
+        }
+      ],
+      "total": 1098,
+      "name": "Prabhdeep singh jassal",
+      "email": "ggchghvvghhgv@gmail.com",
+      "phone": "1234567899",
+      "address": "B5/45",
+      "city": "Nabha",
+      "state": "Punjab",
+      "pincode": "147201",
+      "status": "pending",
+      "createdAt": "2026-01-26T16:45:37.481Z"
+    },
+    {
+      "id": 1769447374144,
+      "items": [
+        {
+          "id": "p1768125447049897",
+          "name": "test stock",
+          "price": "999",
+          "size": "XXL",
+          "imageUrl": "/uploads/1769415781680-QUantum.jpg",
+          "qty": 1,
+          "stockAvailable": 7
+        }
+      ],
+      "total": 1098,
+      "name": "Prabhdeep singh jassal",
+      "email": "ggchghvvghhgv@gmail.com",
+      "phone": "1234567899",
+      "address": "B5/45",
+      "city": "Nabha",
+      "state": "Punjab",
+      "pincode": "147201",
+      "status": "pending",
+      "createdAt": "2026-01-26T17:09:34.144Z"
+    },
+    {
+      "id": 1773224627057,
+      "items": [
+        {
+          "id": "p1773213598870297",
+          "name": "testwve",
+          "price": "567",
+          "size": "S",
+          "imageUrl": "/uploads/1773213598832-6.jpg",
+          "qty": 1,
+          "stockAvailable": 2
+        }
+      ],
+      "total": 666,
+      "name": "qwe",
+      "email": "wd@gmail.com",
+      "phone": "dw",
+      "address": "dd",
+      "city": "d",
+      "state": "d",
+      "pincode": "d",
+      "status": "pending",
+      "createdAt": "2026-03-11T10:23:47.057Z"
+    },
+    {
+      "id": 1773224808822,
+      "items": [
+        {
+          "id": "p2",
+          "name": "T-SHIRT NOIR",
+          "price": "89",
+          "size": "S",
+          "imageUrl": null,
+          "qty": 1,
+          "stockAvailable": 6
+        }
+      ],
+      "total": 188,
+      "name": "Prabh",
+      "email": "psingh_mca24@thapar.edu",
+      "phone": "123456789",
+      "address": "test",
+      "city": "test",
+      "state": "test",
+      "pincode": "147201",
+      "status": "Delivered",
+      "createdAt": "2026-03-11T10:26:48.822Z",
+      "orderStatus": "Delivered",
+      "updatedAt": "2026-03-11T13:35:43.428Z"
+    }
+  ],
+  "worldImages": [
+    {
+      "id": "wi-1773044395171-613",
+      "imageUrl": "/uploads/1773044395088-chat-stats.png",
+      "createdAt": "2026-03-09T08:19:55.172Z"
+    },
+    {
+      "id": "wi-1773040907669-4878",
+      "imageUrl": "/uploads/1773040907663-9.jpg",
+      "createdAt": "2026-03-09T07:21:47.669Z"
+    },
+    {
+      "id": "wi-1773040903458-4905",
+      "imageUrl": "/uploads/1773040903452-8.jpg",
+      "createdAt": "2026-03-09T07:21:43.458Z"
+    },
+    {
+      "id": "wi-1773040898751-1328",
+      "imageUrl": "/uploads/1773040898730-7.jpg",
+      "createdAt": "2026-03-09T07:21:38.751Z"
+    },
+    {
+      "id": "wi-1773040895299-6324",
+      "imageUrl": "/uploads/1773040895293-6.jpg",
+      "createdAt": "2026-03-09T07:21:35.299Z"
+    },
+    {
+      "id": "wi-1773040888731-9817",
+      "imageUrl": "/uploads/1773040888725-5.jpg",
+      "createdAt": "2026-03-09T07:21:28.731Z"
+    },
+    {
+      "id": "wi-1773040884206-1911",
+      "imageUrl": "/uploads/1773040884197-4.jpg",
+      "createdAt": "2026-03-09T07:21:24.206Z"
+    },
+    {
+      "id": "wi-1773040878129-7269",
+      "imageUrl": "/uploads/1773040878111-3.jpg",
+      "createdAt": "2026-03-09T07:21:18.129Z"
+    },
+    {
+      "id": "wi-1773040873719-139",
+      "imageUrl": "/uploads/1773040873717-0.jpg",
+      "createdAt": "2026-03-09T07:21:13.719Z"
+    },
+    {
+      "id": "wi-1773040836504-9847",
+      "imageUrl": "/uploads/1773040836473-pexels-alex-andrews-271121-1983035.jpg",
+      "createdAt": "2026-03-09T07:20:36.505Z"
+    },
+    {
+      "id": "wi-1773040826963-1190",
+      "imageUrl": "/uploads/1773040826901-3d-render-grunge-dark-interior-with-light-from-side-windows.jpg",
+      "createdAt": "2026-03-09T07:20:26.963Z"
+    }
+  ],
+  "preOrders": [
+    {
+      "id": "po-1773241860586-9739",
+      "email": "psingh_mca24@tthapar.edu",
+      "productId": "p1773239199173184",
+      "productName": "Fleece-Jacket",
+      "size": "XL",
+      "qty": 1,
+      "createdAt": "2026-03-11T15:11:00.586Z"
+    }
+  ]
+}

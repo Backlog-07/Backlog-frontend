@@ -1,0 +1,54 @@
+/* Size stock management */
+.size-stock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.size-stock-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.size-stock-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.size-stock-input {
+  padding: 10px 12px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.size-stock-input:focus {
+  outline: none;
+  border-color: #000;
+}
+
+.stock-total {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f0f8ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: center;
+  color: #333;
+}
+
+.stock-total strong {
+  color: #000;
+  font-size: 16px;
+}
+
+/* ...existing code... */
