@@ -28,7 +28,6 @@ const formatPrice = (value) => {
 function MainApp() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [offset, setOffset] = useState(0);
-  const [activeIndex, setActiveIndex] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState(null);
@@ -65,6 +64,13 @@ function MainApp() {
   useEffect(() => {
     offsetRef.current = offset;
   }, [offset]);
+
+  const getActiveIndexFromOffset = useCallback((off) => {
+    if (!products.length) return 0;
+    const w = getCurrentItemWidth();
+    const raw = Math.round(-off / w);
+    return ((raw % products.length) + products.length) % products.length;
+  }, [products.length]);
 
   // Replace offset animation with time-based damping for smoother feel
   const animRef = useRef({
@@ -203,14 +209,6 @@ function MainApp() {
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
   }, [selectedProduct, addVelocity, snapToNearest]);
-
-  useEffect(() => {
-    if (!products.length) return;
-    const w = getCurrentItemWidth();
-    const raw = Math.round(-offset / w);
-    const idx = ((raw % products.length) + products.length) % products.length;
-    setActiveIndex(idx);
-  }, [offset, products.length]);
 
   useEffect(() => {
     try {
@@ -416,10 +414,11 @@ function MainApp() {
   }, [sheetVisible, sheetTab, selectedProduct?.glbUrl]);
 
   const handleCenterButtonClick = () => {
-    if (products.length > 0) {
-      const activeProduct = products[activeIndex];
-      openBottomSheet(activeProduct);
-    }
+    if (!products.length) return;
+    // Derive active product at click-time to avoid using a stale activeIndex.
+    const idx = getActiveIndexFromOffset(offsetRef.current);
+    const activeProduct = products[idx];
+    if (activeProduct) openBottomSheet(activeProduct);
   };
 
   const closeBottomSheet = () => {
@@ -583,7 +582,7 @@ function MainApp() {
           <span className="nav-text">
             {selectedProduct
               ? selectedProduct.name
-              : products[activeIndex]?.name || ""}
+              : products[getActiveIndexFromOffset(offsetRef.current)]?.name || ""}
           </span>
         </div>
       </header>
