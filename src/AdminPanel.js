@@ -20,9 +20,11 @@ const ORDER_STATUSES = [
 
 const PAYMENT_STATUSES = [
   "Pending",
+  "Partially Paid",
   "Paid",
+  "Completed",
+  "Refunded",
   "Failed",
-  "Refunded"
 ];
 
 function authFetch(url, options = {}) {
@@ -50,7 +52,7 @@ export default function AdminPanel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("inventory"); // "inventory", "create", "world-images", "orders", "preorders", or "stats"
   const [editing, setEditing] = useState(null);
-  const emptyForm = { name: "", price: "", desc: "", sizes: [], stock: 0, preOrder: false, imageUrl: null, glbUrl: null };
+  const emptyForm = { name: "", price: "", desc: "", sizes: [], stock: 0, preOrder: false, imageUrl: null, glbUrl: null, sizeStock: {}, code: "" };
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState([]);
   const fileRef = useRef();
@@ -75,6 +77,8 @@ export default function AdminPanel() {
   const [preOrders, setPreOrders] = useState([]);
   const [preOrdersLoading, setPreOrdersLoading] = useState(false);
   const [preOrdersError, setPreOrdersError] = useState("");
+
+  const [ordersSubTab, setOrdersSubTab] = useState('partial'); // 'partial' | 'full'
 
   useEffect(() => {
     const check = async () => {
@@ -343,6 +347,8 @@ export default function AdminPanel() {
       preOrder: !!p.preOrder,
       imageUrl: p.imageUrl || null,
       glbUrl: p.glbUrl || null,
+      sizeStock: p.sizeStock || {},
+      code: p.code || "",
     });
     setActiveTab("create");
   };
@@ -351,7 +357,7 @@ export default function AdminPanel() {
     setEditing(null);
     setForm(emptyForm);
     if (fileRef.current) fileRef.current.value = null;
-    if (glbRef.current) glbRef.current.value = null;
+    if (glbRef.current) fileRef.current.value = null;
   };
 
   const formatPrice = (val) => {
@@ -365,10 +371,32 @@ export default function AdminPanel() {
   };
 
   const toggleSize = (size) => {
-    const newSizes = form.sizes.includes(size)
-      ? form.sizes.filter(s => s !== size)
+    const nextSizes = form.sizes.includes(size)
+      ? form.sizes.filter((s) => s !== size)
       : [...form.sizes, size];
-    setForm({ ...form, sizes: newSizes });
+
+    const nextSizeStock = { ...(form.sizeStock || {}) };
+
+    // Remove stock entries for removed sizes
+    for (const k of Object.keys(nextSizeStock)) {
+      if (!nextSizes.includes(k)) delete nextSizeStock[k];
+    }
+
+    // Add stock entries for newly selected sizes
+    for (const s of nextSizes) {
+      if (nextSizeStock[s] == null) nextSizeStock[s] = 0;
+    }
+
+    const total = Object.values(nextSizeStock).reduce((sum, v) => sum + (Number(v) || 0), 0);
+
+    setForm({ ...form, sizes: nextSizes, sizeStock: nextSizeStock, stock: total });
+  };
+
+  const setSizeStockValue = (size, value) => {
+    const nextSizeStock = { ...(form.sizeStock || {}) };
+    nextSizeStock[size] = Math.max(0, Number(value) || 0);
+    const total = Object.values(nextSizeStock).reduce((sum, v) => sum + (Number(v) || 0), 0);
+    setForm((prev) => ({ ...prev, sizeStock: nextSizeStock, stock: total }));
   };
 
   const handleUploadImage = async () => {
@@ -496,6 +524,7 @@ export default function AdminPanel() {
     }
 
     const payload = { 
+      code: (form.code || '').trim() || undefined,
       name: form.name, 
       price: form.price, 
       desc: form.desc, 
@@ -505,6 +534,7 @@ export default function AdminPanel() {
       preOrder: !!form.preOrder,
       imageUrl: imageUrl, // Use the uploaded or existing imageUrl
       glbUrl: glbUrl, // Use the uploaded or existing glbUrl
+      sizeStock: form.sizeStock || {},
     };
     
     const v = validateProduct(payload);
@@ -627,12 +657,12 @@ export default function AdminPanel() {
     }
   };
 
-  const handleUpdateOrderStatus = async (orderId, orderStatus, paymentStatus) => {
+  const handleUpdateOrderStatus = async (orderId, orderStatus, paymentStatus, paymentMeta = {}) => {
     try {
       const res = await authFetch(`/api/orders/${orderId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderStatus, paymentStatus }),
+        body: JSON.stringify({ orderStatus, paymentStatus, ...paymentMeta }),
       });
 
       if (!res.ok) {
@@ -1065,6 +1095,12 @@ export default function AdminPanel() {
               <input placeholder="Brief product description" value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} style={{ width: '100%', padding: 12, border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
             </div>
 
+            {/* Item ID */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, color: '#666' }}>Item ID (Code)</label>
+              <input placeholder="e.g. SKU12345" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} style={{ width: '100%', padding: 12, border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+
             {/* Sizes */}
             <div style={{ marginBottom: 24 }}>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#666' }}>Available Sizes</label>
@@ -1082,6 +1118,27 @@ export default function AdminPanel() {
                 ))}
               </div>
             </div>
+
+            {/* Size Stock */}
+            {form.sizes.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#666' }}>Stock per Size</label>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {form.sizes.map((size) => (
+                    <div key={size} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, width: 50 }}>{size}</div>
+                      <input
+                        type="number"
+                        min="0"
+                        value={form.sizeStock[size] || 0}
+                        onChange={(e) => setSizeStockValue(size, e.target.value)}
+                        style={{ flex: 1, padding: 12, border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Image Upload */}
             <div style={{ marginBottom: 24 }}>
@@ -1273,169 +1330,250 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: 40, color: '#666' }}>⏳ Loading orders...</div>
-            ) : orders.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>No orders yet</div>
-                <p style={{ color: '#999', marginTop: 8 }}>Orders will appear here after customers complete checkout</p>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gap: 16 }}>
-                {orders.slice().reverse().map((order) => {
-                  const isExpanded = expandedOrders[order.id];
-                  
-                  return (
-                    <div key={order.id} style={{ padding: 24, background: '#f9f9f9', borderRadius: 16, border: '2px solid #f0f0f0', transition: 'all 0.2s' }}>
-                      {/* Collapsed View - Clickable Header */}
-                      <div 
-                        onClick={() => toggleOrderExpansion(order.id)}
-                        style={{ 
-                          display: 'grid', 
-                          gridTemplateColumns: '1fr 1fr 1fr auto', 
-                          gap: 20, 
-                          alignItems: 'center',
-                          cursor: 'pointer',
-                          padding: isExpanded ? '0 0 20px 0' : 0,
-                          marginBottom: isExpanded ? 20 : 0,
-                          borderBottom: isExpanded ? '2px solid #e0e0e0' : 'none'
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Order ID</div>
-                          <div style={{ fontSize: 15, fontWeight: 800 }}>#{order.id}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Amount</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: '#0a7a0a' }}>₹{order.total || 0}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer</div>
-                          <div style={{ fontSize: 14, fontWeight: 600 }}>{order.customerName || 'N/A'}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            {isExpanded ? '▼ Collapse' : '▶ Expand'}
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 600 }}>{new Date(order.createdAt).toLocaleDateString()}</div>
-                        </div>
-                      </div>
+            {/* Orders sub-tabs */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setOrdersSubTab('partial')}
+                style={{
+                  padding: '10px 14px',
+                  background: ordersSubTab === 'partial' ? '#000' : 'transparent',
+                  color: ordersSubTab === 'partial' ? '#fff' : '#666',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  letterSpacing: 0.8,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                }}
+              >
+                Partial Paid
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrdersSubTab('full')}
+                style={{
+                  padding: '10px 14px',
+                  background: ordersSubTab === 'full' ? '#000' : 'transparent',
+                  color: ordersSubTab === 'full' ? '#fff' : '#666',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  letterSpacing: 0.8,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                }}
+              >
+                Fully Paid
+              </button>
+            </div>
+            
+            {(() => {
+              const isPartial = (o) => {
+                const type = String(o.paymentType || '').toUpperCase();
+                const status = String(o.paymentStatus || '').toLowerCase();
+                const due = Number(o.amountDue || 0) || 0;
+                return type === 'PARTIAL' || status.includes('partially') || due > 0;
+              };
+              const isFull = (o) => {
+                const type = String(o.paymentType || '').toUpperCase();
+                const status = String(o.paymentStatus || '').toLowerCase();
+                const due = Number(o.amountDue || 0) || 0;
+                return type === 'FULL' || status === 'paid' || status === 'completed' || due <= 0;
+              };
 
-                      {/* Expanded View - Show full details */}
-                      {isExpanded && (
-                        <div>
-                          {/* Status Management */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20, padding: 16, background: '#fff', borderRadius: 12 }}>
-                            <div>
-                              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Order Status</label>
-                              <select
-                                value={order.orderStatus || "Order Placed"}
-                                onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value, order.paymentStatus)}
-                                style={{
-                                  width: '100%',
-                                  padding: 12,
-                                  border: '2px solid #e0e0e0',
-                                  borderRadius: 8,
-                                  fontSize: 14,
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  background: '#fff',
-                                }}
-                              >
-                                {ORDER_STATUSES.map(status => (
-                                  <option key={status} value={status}>{status}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Payment Status</label>
-                              <select
-                                value={order.paymentStatus || "Pending"}
-                                onChange={(e) => handleUpdateOrderStatus(order.id, order.orderStatus, e.target.value)}
-                                style={{
-                                  width: '100%',
-                                  padding: 12,
-                                  border: '2px solid #e0e0e0',
-                                  borderRadius: 8,
-                                  fontSize: 14,
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  background: '#fff',
-                                }}
-                              >
-                                {PAYMENT_STATUSES.map(status => (
-                                  <option key={status} value={status}>{status}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
+              const filteredOrders = (orders || []).filter((o) => (ordersSubTab === 'partial' ? isPartial(o) : isFull(o)));
 
-                          {/* Payment Method */}
-                          <div style={{ marginBottom: 20, padding: 16, background: '#fff', borderRadius: 12 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Payment Method</div>
-                            <div style={{ fontSize: 13, fontWeight: 700, background: '#e8f5e9', padding: '6px 12px', borderRadius: 6, display: 'inline-block' }}>
-                              {order.paymentMethod || 'COD'}
-                            </div>
-                          </div>
+              const list = filteredOrders.slice().reverse();
 
-                          {/* Customer Details */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Name</div>
-                              <div style={{ fontSize: 14, fontWeight: 600 }}>{order.customerName || 'N/A'}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Email</div>
-                              <div style={{ fontSize: 13 }}>{order.email || 'N/A'}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Phone</div>
-                              <div style={{ fontSize: 14, fontWeight: 600 }}>{order.phone || 'N/A'}</div>
-                            </div>
-                          </div>
+              if (loading) {
+                return <div style={{ textAlign: 'center', padding: 40, color: '#666' }}>⏳ Loading orders...</div>;
+              }
 
-                          {/* Address */}
-                          <div style={{ marginBottom: 20 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Delivery Address</div>
-                            <div style={{ fontSize: 14, background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #e0e0e0' }}>
-                              {order.address || 'N/A'}, {order.city || ''}, {order.state || ''} - {order.pincode || ''}
-                            </div>
-                          </div>
+              if (!list.length) {
+                return (
+                  <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>No orders in this view</div>
+                    <p style={{ color: '#999', marginTop: 8 }}>Switch tabs to see other orders.</p>
+                  </div>
+                );
+              }
 
-                          {/* Items */}
+              return (
+                <div style={{ display: 'grid', gap: 16 }}>
+                  {list.map((order) => {
+                    const isExpanded = expandedOrders[order.id];
+
+                    return (
+                      <div key={order.id} style={{ padding: 24, background: '#f9f9f9', borderRadius: 16, border: '2px solid #f0f0f0', transition: 'all 0.2s' }}>
+                        {/* Collapsed View - Clickable Header */}
+                        <div 
+                          onClick={() => toggleOrderExpansion(order.id)}
+                          style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: '1fr 1fr 1fr auto', 
+                            gap: 20, 
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            padding: isExpanded ? '0 0 20px 0' : 0,
+                            marginBottom: isExpanded ? 20 : 0,
+                            borderBottom: isExpanded ? '2px solid #e0e0e0' : 'none'
+                          }}
+                        >
                           <div>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Items Ordered</div>
-                            <div style={{ display: 'grid', gap: 10 }}>
-                              {(order.items || []).map((item, idx) => (
-                                <div key={idx} style={{ padding: 12, background: '#fff', borderRadius: 8, fontSize: 13, border: '1px solid #e0e0e0', display: 'grid', gridTemplateColumns: '60px 1fr auto', gap: 12, alignItems: 'center' }}>
-                                  {item.imageUrl && (
-                                    <img 
-                                      src={item.imageUrl.startsWith('http') ? item.imageUrl : `${API_BASE}${item.imageUrl}`}
-                                      alt={item.name}
-                                      style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 6 }}
-                                    />
-                                  )}
-                                  <div>
-                                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{item.name}</div>
-                                    <div style={{ color: '#666', fontSize: 12 }}>
-                                      Item ID: <strong>{item.code || item.id}</strong> • Size: <strong>{item.size}</strong> • Qty: <strong>{item.qty}</strong>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Order ID</div>
+                            <div style={{ fontSize: 15, fontWeight: 800 }}>#{order.id}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Amount</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: '#0a7a0a' }}>₹{order.total || 0}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer</div>
+                            <div style={{ fontSize: 14, fontWeight: 600 }}>{order.customerName || 'N/A'}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                              {isExpanded ? '▼ Collapse' : '▶ Expand'}
+                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 600 }}>{new Date(order.createdAt).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+
+                        {/* Expanded View - Show full details */}
+                        {isExpanded && (
+                          <div>
+                            {/* Status Management */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20, padding: 16, background: '#fff', borderRadius: 12 }}>
+                              <div>
+                                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Order Status</label>
+                                <select
+                                  value={order.orderStatus || "Order Placed"}
+                                  onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value, order.paymentStatus)}
+                                  style={{
+                                    width: '100%',
+                                    padding: 12,
+                                    border: '2px solid #e0e0e0',
+                                    borderRadius: 8,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    background: '#fff',
+                                  }}
+                                >
+                                  {ORDER_STATUSES.map(status => (
+                                    <option key={status} value={status}>{status}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Payment Status</label>
+                                <select
+                                  value={order.paymentStatus || "Pending"}
+                                  onChange={(e) => handleUpdateOrderStatus(order.id, order.orderStatus, e.target.value, {
+                                    paymentType: order.paymentType,
+                                    partialPaidAmount: order.partialPaidAmount,
+                                    amountDue: order.amountDue,
+                                  })}
+                                  style={{
+                                    width: '100%',
+                                    padding: 12,
+                                    border: '2px solid #e0e0e0',
+                                    borderRadius: 8,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    background: '#fff',
+                                  }}
+                                >
+                                  {PAYMENT_STATUSES.map(status => (
+                                    <option key={status} value={status}>{status}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Payment Method */}
+                            <div style={{ marginBottom: 20, padding: 16, background: '#fff', borderRadius: 12 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Payment</div>
+                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, background: '#e8f5e9', padding: '6px 12px', borderRadius: 6, display: 'inline-block' }}>
+                                  {order.paymentMethod || 'COD'}
+                                </div>
+                                {order.paymentType && (
+                                  <div style={{ fontSize: 12, fontWeight: 800, background: '#f4f4f4', padding: '6px 10px', borderRadius: 6, display: 'inline-block' }}>
+                                    {String(order.paymentType).toUpperCase()}
+                                  </div>
+                                )}
+                                {order.paymentType === 'PARTIAL' && (
+                                  <div style={{ fontSize: 12, color: '#333' }}>
+                                    Paid: <strong>₹{Number(order.partialPaidAmount || 0)}</strong> • Due: <strong>₹{Number(order.amountDue || 0)}</strong>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Customer Details */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Name</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>{order.customerName || 'N/A'}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Email</div>
+                                <div style={{ fontSize: 13 }}>{order.email || 'N/A'}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Phone</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>{order.phone || 'N/A'}</div>
+                              </div>
+                            </div>
+
+                            {/* Address */}
+                            <div style={{ marginBottom: 20 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Delivery Address</div>
+                              <div style={{ fontSize: 14, background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #e0e0e0' }}>
+                                {order.address || 'N/A'}, {order.city || ''}, {order.state || ''} - {order.pincode || ''}
+                              </div>
+                            </div>
+
+                            {/* Items */}
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Items Ordered</div>
+                              <div style={{ display: 'grid', gap: 10 }}>
+                                {(order.items || []).map((item, idx) => (
+                                  <div key={idx} style={{ padding: 12, background: '#fff', borderRadius: 8, fontSize: 13, border: '1px solid #e0e0e0', display: 'grid', gridTemplateColumns: '60px 1fr auto', gap: 12, alignItems: 'center' }}>
+                                    {item.imageUrl && (
+                                      <img 
+                                        src={item.imageUrl.startsWith('http') ? item.imageUrl : `${API_BASE}${item.imageUrl}`}
+                                        alt={item.name}
+                                        style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 6 }}
+                                      />
+                                    )}
+                                    <div>
+                                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{item.name}</div>
+                                      <div style={{ color: '#666', fontSize: 12 }}>
+                                        Item ID: <strong>{item.code || item.id}</strong> • Size: <strong>{item.size}</strong> • Qty: <strong>{item.qty}</strong>
+                                      </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right', fontWeight: 700, fontSize: 15 }}>
+                                      ₹{item.price * item.qty}
                                     </div>
                                   </div>
-                                  <div style={{ textAlign: 'right', fontWeight: 700, fontSize: 15 }}>
-                                    ₹{item.price * item.qty}
-                                  </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 

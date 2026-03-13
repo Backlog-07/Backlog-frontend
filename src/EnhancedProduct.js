@@ -40,19 +40,15 @@ function ImageTile({ imageUrl, active }) {
           <meshBasicMaterial
             map={texture}
             transparent
-            opacity={active ? 1 : 0.7}
+            opacity={1}
             side={THREE.DoubleSide}
             alphaTest={0.05}
           />
         ) : (
-          <meshBasicMaterial color="#e8e8e8" transparent opacity={active ? 1 : 0.6} side={THREE.DoubleSide} />
+          <meshBasicMaterial color="#e8e8e8" transparent opacity={1} side={THREE.DoubleSide} />
         )}
       </mesh>
-      {/* subtle border/glow when active */}
-      <mesh position={[0, 0, -0.001]}>
-        <planeGeometry args={[0.66, 1.02]} />
-        <meshBasicMaterial color="#00aaff" transparent opacity={active ? 0.12 : 0} side={THREE.DoubleSide} />
-      </mesh>
+      {/* no glow/border to avoid any tint */}
     </group>
   );
 }
@@ -125,21 +121,12 @@ function LegacyTile({ active }) {
           metalness={0.8}
           roughness={0.15}
           transparent
-          opacity={active ? 1 : 0.6}
+          opacity={1}
           side={THREE.FrontSide}
         />
       </mesh>
 
-      <mesh scale={1.02}>
-        <boxGeometry args={[0.6, 0.95, 0.175]} />
-        <meshBasicMaterial
-          color="#00aaff"
-          transparent
-          opacity={active ? 0.15 : 0}
-          side={THREE.BackSide}
-          toneMapped={false}
-        />
-      </mesh>
+      {/* no glow/border to avoid any tint */}
     </group>
   );
 }

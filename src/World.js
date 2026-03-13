@@ -300,6 +300,14 @@ export default function World({ onSelect }) {
 
   const currentIndex = indexRef.current;
 
+  const [joyPillEnter, setJoyPillEnter] = useState(false);
+
+  useEffect(() => {
+    // trigger the pill morph-in only when World page mounts
+    const t = setTimeout(() => setJoyPillEnter(true), 30);
+    return () => clearTimeout(t);
+  }, []);
+
   if (loadingImages) return null;
 
   if (!count) {
@@ -341,7 +349,7 @@ export default function World({ onSelect }) {
         overflow: "hidden",
         // Reserve space for existing UI (header/joystick)
         paddingTop: 86,
-        paddingBottom: 140,
+        paddingBottom: 190,
         boxSizing: "border-box",
       }}
     >
@@ -435,6 +443,13 @@ export default function World({ onSelect }) {
             );
           })}
         </div>
+      </div>
+
+      {/* Joystick pill UI (World only) */}
+      <div className={`joy-pill ${joyPillEnter ? 'enter' : ''}`} aria-label="World joystick">
+        <button className="joy-pill-btn joy-pill-left" aria-label="Previous" />
+        <button className="joy-pill-btn joy-pill-center" aria-label="Close" />
+        <button className="joy-pill-btn joy-pill-right" aria-label="Next" />
       </div>
     </section>
   );

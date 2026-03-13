@@ -23,6 +23,9 @@ export default function CheckoutPage() {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cod"); // "cod" or "online"
   const [codConfirmed, setCodConfirmed] = useState(false);
+  const [partialModalOpen, setPartialModalOpen] = useState(false);
+  const [partialPaid, setPartialPaid] = useState(false);
+  const PARTIAL_PAY_AMOUNT = SHIPPING_CHARGE; // pay now (advance/shipping)
   const [submitting, setSubmitting] = useState(false);
   const [outOfStockItems, setOutOfStockItems] = useState([]);
 
@@ -96,9 +99,15 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (paymentMethod === "cod" && !codConfirmed) {
-      alert("Please confirm COD shipping charge before placing the order.");
-      return;
+    if (paymentMethod === "cod") {
+      if (!codConfirmed) {
+        alert("Please confirm the partial payment before placing the order.");
+        return;
+      }
+      if (!partialPaid) {
+        setPartialModalOpen(true);
+        return;
+      }
     }
     setSubmitting(true);
     try { window.__ensureBootLoader && window.__ensureBootLoader(); } catch {}
@@ -107,9 +116,13 @@ export default function CheckoutPage() {
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 1500));
 
+      const total = getTotalWithShipping();
+      const partialPaidAmount = paymentMethod === 'cod' ? PARTIAL_PAY_AMOUNT : total;
+      const amountDue = Math.max(0, total - partialPaidAmount);
+
       const orderData = {
         items: cart,
-        total: getTotalWithShipping(),
+        total,
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
@@ -118,6 +131,10 @@ export default function CheckoutPage() {
         state: formData.state,
         pincode: formData.zip,
         paymentMethod: paymentMethod === "online" ? "ONLINE" : "COD",
+        paymentType: paymentMethod === 'cod' ? 'PARTIAL' : 'FULL',
+        partialPaidAmount,
+        amountDue,
+        paymentStatus: paymentMethod === 'cod' ? 'Partially Paid' : 'Paid',
       };
 
       const res = await fetch(`${API_BASE}/api/orders`, {
@@ -191,6 +208,90 @@ export default function CheckoutPage() {
 
   return (
     <div className="checkout-wrapper">
+      {partialModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setPartialModalOpen(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              background: '#fff',
+              borderRadius: 16,
+              padding: 20,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 14, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase' }}>
+              Pay now (Partial Payment)
+            </div>
+            <div style={{ marginTop: 10, color: '#666', fontSize: 13, lineHeight: 1.5 }}>
+              You will pay <strong>{formatPrice(PARTIAL_PAY_AMOUNT)}</strong> now.
+              Remaining amount will be collected at your doorstep.
+            </div>
+
+            <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: '#f9f9f9', border: '1px solid #eee', fontSize: 13 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span>Total</span>
+                <strong>{formatPrice(getTotalWithShipping())}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span>Pay now</span>
+                <strong>{formatPrice(PARTIAL_PAY_AMOUNT)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Due on delivery</span>
+                <strong>{formatPrice(Math.max(0, getTotalWithShipping() - PARTIAL_PAY_AMOUNT))}</strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button
+                type="button"
+                className="action-btn secondary"
+                style={{ flex: 1, padding: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8 }}
+                onClick={() => setPartialModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="action-btn primary"
+                style={{ flex: 1, padding: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8 }}
+                onClick={() => {
+                  // Test-mode: mark as paid and continue
+                  setPartialPaid(true);
+                  setPartialModalOpen(false);
+                  // continue checkout flow
+                  setTimeout(() => {
+                    const fakeEvt = { preventDefault: () => {} };
+                    handleSubmit(fakeEvt);
+                  }, 0);
+                }}
+              >
+                Pay {formatPrice(PARTIAL_PAY_AMOUNT)}
+              </button>
+            </div>
+
+            <div style={{ marginTop: 10, fontSize: 12, color: '#999' }}>
+              Test mode: this simulates payment success.
+            </div>
+          </div>
+        </div>
+      )}
       <header className="checkout-header">
         <div className="checkout-logo">Backlog</div>
         <h1 className="checkout-title">CHECKOUT</h1>

@@ -99,6 +99,12 @@ export default function Scene({
       background: "transparent",   // ✅ REQUIRED
     }}
     dpr={Math.min(window.devicePixelRatio, 1.5)}
+    onCreated={({ gl }) => {
+      // Better perceived brightness + correct output colors
+      gl.outputColorSpace = THREE.SRGBColorSpace;
+      gl.toneMapping = THREE.ACESFilmicToneMapping;
+      gl.toneMappingExposure = isPreview ? 1.25 : 1.0;
+    }}
   >
   
       <Suspense
@@ -123,16 +129,24 @@ export default function Scene({
           />
         )}
 
-        {/* Optimized Lights */}
-        <ambientLight intensity={0.4} />
+        {/* Lights */}
+        <ambientLight intensity={isPreview ? 0.95 : 0.4} />
         <directionalLight 
           position={[5, 6, 5]} 
-          intensity={0.8}
+          intensity={isPreview ? 1.35 : 0.8}
           castShadow={false}
         />
+        {isPreview && (
+          <directionalLight
+            position={[-5, 3, 3]}
+            intensity={0.7}
+            castShadow={false}
+          />
+        )}
 
-        {/* Environment ONLY for main scene */}
+        {/* Environment: keep for main + add for preview to avoid dark models */}
         {!isPreview && <Environment preset="apartment" blur={0.6} />}
+        {isPreview && <Environment preset="studio" blur={0.2} />}
 
         {/* Particles ONLY for main scene */}
         {!isPreview && <Particles />}

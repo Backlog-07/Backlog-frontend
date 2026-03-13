@@ -54,6 +54,8 @@ function MainApp() {
     }
   });
 
+  const cartItemCount = cart.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+
   const scrollTimeoutRef = useRef(null);
   const offsetRef = useRef(0);
 
@@ -481,7 +483,19 @@ function MainApp() {
 
   const handleBuyNow = () => {
     if (!selectedProduct) return;
-    localStorage.setItem("cart", JSON.stringify(cart));
+    // Buy Now should go straight to checkout with ONLY this item
+    const sizeStock = selectedProduct.sizeStock?.[selectedSize];
+    const stockAvailable = sizeStock !== undefined ? sizeStock : selectedProduct.stock;
+    const item = {
+      id: selectedProduct.id,
+      name: selectedProduct.name,
+      price: selectedProduct.price,
+      size: selectedSize,
+      imageUrl: selectedProduct.imageUrl,
+      qty: Number(quantity) || 1,
+      stockAvailable: stockAvailable,
+    };
+    localStorage.setItem("cart", JSON.stringify([item]));
     window.location.href = "/checkout";
   };
 
@@ -603,15 +617,42 @@ function MainApp() {
               setMenuOpen(false);
             }}
           >
-            {cartIcon ? (
-              <img
-                src={cartIcon}
-                alt="Cart"
-                style={{ width: 22, height: 22 }}
-              />
-            ) : (
-              "CART"
-            )}
+            <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              {cartIcon ? (
+                <img
+                  src={cartIcon}
+                  alt="Cart"
+                  style={{ width: 22, height: 22 }}
+                />
+              ) : (
+                "CART"
+              )}
+              {cartItemCount > 0 && (
+                <span
+                  aria-label={`${cartItemCount} items in cart`}
+                  style={{
+                    position: 'absolute',
+                    top: -8,
+                    right: -10,
+                    minWidth: 18,
+                    height: 18,
+                    padding: '0 5px',
+                    borderRadius: 999,
+                    background: '#ff2d55',
+                    color: '#fff',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    lineHeight: '18px',
+                    textAlign: 'center',
+                    border: '2px solid rgba(0,0,0,0.75)',
+                    boxSizing: 'border-box',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {cartItemCount > 99 ? '99+' : cartItemCount}
+                </span>
+              )}
+            </span>
           </button>
         </div>
       </nav>
@@ -678,7 +719,6 @@ function MainApp() {
                             : `${API_BASE}${selectedProduct.imageUrl}`
                         }
                         alt={selectedProduct.name}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         onError={(e) => {
                           console.error('Image failed to load:', selectedProduct.imageUrl);
                           e.target.style.display = 'none';
@@ -691,7 +731,7 @@ function MainApp() {
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'center',
-                        background: '#f0f0f0',
+                        background: 'transparent',
                         color: '#999',
                         fontSize: 14
                       }}>
@@ -799,16 +839,22 @@ function MainApp() {
 
               {/* Stock / Availability */}
               <div style={{ marginTop: 12 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: selectedProduct.available ? "#0a0" : "#b00020",
-                  }}
-                >
-                  {selectedProduct.available
-                    ? `In stock: ${selectedProduct.stock}`
-                    : "Out of stock"}
-                </div>
+                {(() => {
+                  const sizeStock = selectedProduct?.sizeStock?.[selectedSize];
+                  const stockAvailable = sizeStock !== undefined ? Number(sizeStock) || 0 : Number(selectedProduct?.stock) || 0;
+                  const inStock = stockAvailable > 0;
+
+                  return (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: inStock ? "#0a0" : "#b00020",
+                      }}
+                    >
+                      {inStock ? `In stock (${selectedSize || "—"}): ${stockAvailable}` : `Out of stock (${selectedSize || "—"})`}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Quantity Section */}
@@ -836,11 +882,12 @@ function MainApp() {
                       e.stopPropagation();
                       setQuantity(Math.min(99, quantity + 1));
                     }}
-                    disabled={
-                      !selectedProduct ||
-                      !selectedProduct.available ||
-                      quantity >= selectedProduct.stock
-                    }
+                    disabled={(() => {
+                      if (!selectedProduct) return true;
+                      const sizeStock = selectedProduct.sizeStock?.[selectedSize];
+                      const stockAvailable = sizeStock !== undefined ? Number(sizeStock) || 0 : Number(selectedProduct.stock) || 0;
+                      return !selectedProduct.available || quantity >= stockAvailable;
+                    })()}
                   >
                     +
                   </button>
@@ -968,22 +1015,11 @@ export default function App() {
 function WorldApp() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [offset, setOffset] = useState(0);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  // activeIndex not needed now that the bottom sheet is removed
   const [loading, setLoading] = useState(true);
-  const [selectedSize, setSelectedSize] = useState(null);
-  const [quantity, setQuantity] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [sheetVisible, setSheetVisible] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-  const [sheetTab, setSheetTab] = useState("3d"); // "2d" or "3d"
-  const [tabDotsDrag, setTabDotsDrag] = useState(false);
-  const tabDotsRef = useRef(null);
-  const tabDotsDragStartRef = useRef(0);
-
-  const [preOrderEmail, setPreOrderEmail] = useState("");
-  const [preOrderSubmitting, setPreOrderSubmitting] = useState(false);
-  const [preOrderSuccess, setPreOrderSuccess] = useState(false);
+  // Bottom sheet removed on World page, so product selection state is not needed.
 
   const [cart, setCart] = useState(() => {
     try {
@@ -993,6 +1029,8 @@ function WorldApp() {
       return [];
     }
   });
+
+  const cartItemCount = cart.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
 
   const snapAnimRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
@@ -1068,12 +1106,7 @@ function WorldApp() {
     stepBy(direction);
   }, [stepBy]);
 
-  useEffect(() => {
-    if (!products.length) return;
-    const raw = Math.round(-offset / ITEM_WIDTH);
-    const idx = ((raw % products.length) + products.length) % products.length;
-    setActiveIndex(idx);
-  }, [offset, products.length]);
+  // (activeIndex tracking removed)
 
   useEffect(() => {
     try {
@@ -1120,7 +1153,6 @@ function WorldApp() {
 
   useEffect(() => {
     const handleWheel = (e) => {
-      if (selectedProduct) return;
       e.preventDefault();
 
       if (isAnimatingRef.current) return;
@@ -1144,12 +1176,10 @@ function WorldApp() {
       window.removeEventListener("wheel", handleWheel);
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
-  }, [selectedProduct, animateByDelta, snapToNearest]);
+  }, [animateByDelta, snapToNearest]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (selectedProduct) return;
-
       if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
         e.preventDefault();
         handleArrowClick(1);
@@ -1162,212 +1192,17 @@ function WorldApp() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedProduct, handleArrowClick]);
+  }, [handleArrowClick]);
 
-  useEffect(() => {
-    if (!sheetVisible) return;
-    const handleEsc = (e) => {
-      if (e.key === "Escape") closeBottomSheet();
-    };
-    document.addEventListener("keydown", handleEsc);
-    return () => document.removeEventListener("keydown", handleEsc);
-  }, [sheetVisible]);
-
-  useEffect(() => {
-    const prev = typeof document !== 'undefined' ? document.body.style.overflow : '';
-    if (sheetVisible) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = prev || '';
-    }
-    return () => {
-      try {
-        document.body.style.overflow = prev || '';
-      } catch (e) {}
-    };
-  }, [sheetVisible]);
-
-  const openBottomSheet = async (product) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/products/${product.id}`);
-      if (res.ok) {
-        const latestRaw = await res.json();
-        const latest = {
-          ...latestRaw,
-          stock: Number(latestRaw.stock) || 0,
-          available: (Number(latestRaw.stock) || 0) > 0,
-        };
-        setSelectedProduct(latest);
-        setSelectedSize(latest.sizes?.[0] ?? null);
-        // Prefer 3D if available, else fall back to 2D (prevents showing another product's 3D)
-        setSheetTab(latest.glbUrl ? "3d" : latest.imageUrl ? "2d" : "2d");
-      } else {
-        const norm = {
-          ...product,
-          stock: Number(product.stock) || 0,
-          available: (Number(product.stock) || 0) > 0,
-        };
-        setSelectedProduct(norm);
-        setSelectedSize(norm.sizes?.[0] ?? null);
-        setSheetTab(norm.glbUrl ? "3d" : norm.imageUrl ? "2d" : "2d");
-      }
-      setQuantity(1);
-    } catch (e) {
-      const norm = {
-        ...product,
-        stock: Number(product.stock) || 0,
-        available: (Number(product.stock) || 0) > 0,
-      };
-      setSelectedProduct(norm);
-      setSelectedSize(norm.sizes?.[0] ?? null);
-      setSheetTab(norm.glbUrl ? "3d" : norm.imageUrl ? "2d" : "2d");
-    } finally {
-      setQuantity(1);
-      setSheetVisible(true);
-    }
+  const openBottomSheet = async (_product) => {
+    // bottom sheet removed on World page
+    return;
   };
 
   const handleCenterButtonClick = () => {
-    if (products.length > 0) {
-      const activeProduct = products[activeIndex];
-      openBottomSheet(activeProduct);
-    }
+    // no-op (bottom sheet removed)
+    return;
   };
-
-  const closeBottomSheet = () => {
-    setSheetVisible(false);
-    setTimeout(() => {
-      setSelectedProduct(null);
-      setSelectedSize(null);
-      setQuantity(1);
-      setPreOrderEmail("");
-      setPreOrderSubmitting(false);
-      setPreOrderSuccess(false);
-    }, 300);
-  };
-
-  const handleAddToCart = async () => {
-    if (!selectedProduct) return;
-    
-    // Check if size-specific stock is available
-    const sizeStock = selectedProduct.sizeStock?.[selectedSize];
-    const stockAvailable = sizeStock !== undefined ? sizeStock : selectedProduct.stock;
-    
-    if (stockAvailable <= 0) {
-      alert(`Sorry, ${selectedProduct.name} in size ${selectedSize} is out of stock!`);
-      return;
-    }
-
-    try {
-      const item = {
-        id: selectedProduct.id,
-        name: selectedProduct.name,
-        price: selectedProduct.price,
-        size: selectedSize,
-        imageUrl: selectedProduct.imageUrl,
-        qty: Number(quantity) || 1,
-        stockAvailable: stockAvailable, // Store available stock
-      };
-
-      setCart((prev) => {
-        const foundIdx = prev.findIndex(
-          (p) => p.id === item.id && p.size === item.size
-        );
-        if (foundIdx >= 0) {
-          const next = prev.slice();
-          const newQty = Math.min(stockAvailable, (Number(next[foundIdx].qty) || 0) + item.qty);
-          next[foundIdx] = {
-            ...next[foundIdx],
-            qty: newQty,
-            stockAvailable: stockAvailable,
-          };
-          return next;
-        }
-        return [item, ...prev];
-      });
-      closeBottomSheet();
-      setCartOpen(true);
-    } catch (err) {
-      alert("Error adding to cart");
-    }
-  };
-
-  const handleBuyNow = () => {
-    if (!selectedProduct) return;
-    localStorage.setItem("cart", JSON.stringify(cart));
-    window.location.href = "/checkout";
-  };
-
-  const handlePreOrder = async () => {
-    if (!selectedProduct) return;
-    if (!preOrderEmail || !String(preOrderEmail).includes('@')) {
-      alert('Please enter a valid email');
-      return;
-    }
-    try {
-      setPreOrderSubmitting(true);
-      const res = await fetch(`${API_BASE}/api/preorders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: selectedProduct.code || selectedProduct.id,
-          email: preOrderEmail,
-          size: selectedSize,
-          qty: Number(quantity) || 1,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Pre-order failed');
-      setPreOrderSuccess(true);
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      setPreOrderSubmitting(false);
-    }
-  };
-
-  const handleTabDotsDragStart = (e) => {
-    setTabDotsDrag(true);
-    const startX = e.clientX !== undefined ? e.clientX : e.touches?.[0]?.clientX || 0;
-    tabDotsDragStartRef.current = startX;
-  };
-
-  const handleTabDotsDragMove = useCallback((e) => {
-    if (!tabDotsDrag) return;
-    const currentX = e.clientX !== undefined ? e.clientX : e.touches?.[0]?.clientX || 0;
-    const delta = currentX - tabDotsDragStartRef.current;
-    
-    // Swipe left (negative delta) = switch to 3D
-    // Swipe right (positive delta) = switch to 2D
-    if (Math.abs(delta) > 30) {
-      if (delta < 0) {
-        setSheetTab("3d");
-      } else {
-        setSheetTab("2d");
-      }
-      setTabDotsDrag(false);
-    }
-  }, [tabDotsDrag]);
-
-  const handleTabDotsDragEnd = () => {
-    setTabDotsDrag(false);
-  };
-
-  useEffect(() => {
-    if (!tabDotsDrag) return;
-    
-    window.addEventListener("mousemove", handleTabDotsDragMove);
-    window.addEventListener("mouseup", handleTabDotsDragEnd);
-    window.addEventListener("touchmove", handleTabDotsDragMove);
-    window.addEventListener("touchend", handleTabDotsDragEnd);
-    
-    return () => {
-      window.removeEventListener("mousemove", handleTabDotsDragMove);
-      window.removeEventListener("mouseup", handleTabDotsDragEnd);
-      window.removeEventListener("touchmove", handleTabDotsDragMove);
-      window.removeEventListener("touchend", handleTabDotsDragEnd);
-    };
-  }, [tabDotsDrag, handleTabDotsDragMove]);
 
   if (loading) {
     return null;
@@ -1403,15 +1238,42 @@ function WorldApp() {
               setMenuOpen(false);
             }}
           >
-            {cartIcon ? (
-              <img
-                src={cartIcon}
-                alt="Cart"
-                style={{ width: 22, height: 22 }}
-              />
-            ) : (
-              "CART"
-            )}
+            <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              {cartIcon ? (
+                <img
+                  src={cartIcon}
+                  alt="Cart"
+                  style={{ width: 22, height: 22 }}
+                />
+              ) : (
+                "CART"
+              )}
+              {cartItemCount > 0 && (
+                <span
+                  aria-label={`${cartItemCount} items in cart`}
+                  style={{
+                    position: 'absolute',
+                    top: -8,
+                    right: -10,
+                    minWidth: 18,
+                    height: 18,
+                    padding: '0 5px',
+                    borderRadius: 999,
+                    background: '#ff2d55',
+                    color: '#fff',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    lineHeight: '18px',
+                    textAlign: 'center',
+                    border: '2px solid rgba(0,0,0,0.75)',
+                    boxSizing: 'border-box',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {cartItemCount > 99 ? '99+' : cartItemCount}
+                </span>
+              )}
+            </span>
           </button>
         </div>
       </nav>
@@ -1437,264 +1299,7 @@ function WorldApp() {
         setMenuOpen={setMenuOpen}
       />
 
-      {/* Backdrop Overlay */}
-      {(selectedProduct || sheetVisible) && (
-        <div 
-          className="backdrop" 
-          onClick={closeBottomSheet}
-          style={{
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            background: 'rgba(0, 0, 0, 0.5)',
-          }}
-        />
-      )}
-
-      {/* Enhanced Bottom Sheet */}
-      <div
-        className={`bottom-sheet ${sheetVisible ? "open" : ""}`}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            closeBottomSheet();
-          }
-        }}
-      >
-        <div className="bottom-sheet-content" onClick={(e) => e.stopPropagation()}>
-          <button className="sheet-close" onClick={closeBottomSheet}>
-            ×
-          </button>
-
-          {selectedProduct && (
-            <>
-              {/* 2D/3D View Container with Dots */}
-              <div style={{ position: 'relative' }}>
-                {sheetTab === "2d" ? (
-                  <div className="sheet-2d-view">
-                    {selectedProduct.imageUrl ? (
-                      <img
-                        src={
-                          selectedProduct.imageUrl.startsWith('http') 
-                            ? selectedProduct.imageUrl 
-                            : `${API_BASE}${selectedProduct.imageUrl}`
-                        }
-                        alt={selectedProduct.name}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        onError={(e) => {
-                          console.error('Image failed to load:', selectedProduct.imageUrl);
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        background: '#f0f0f0',
-                        color: '#999',
-                        fontSize: 14
-                      }}>
-                        No Image Available
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="sheet-3d-view">
-                    {/* Only render 3D preview if this product actually has a glbUrl */}
-                    {selectedProduct.glbUrl ? (
-                      <Scene
-                        offset={0}
-                        products={[selectedProduct]}
-                        onSelect={() => {}}
-                        isPreview={true}
-                        forceCentered={true}
-                        interactive={true}
-                        previewCamera={{ position: [0, 0, 3.2], fov: 60 }}
-                      />
-                    ) : (
-                      <div style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        background: '#f0f0f0',
-                        color: '#999',
-                        fontSize: 14
-                      }}>
-                        No 3D Model Available
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {(() => {
-                  const has2d = !!selectedProduct?.imageUrl;
-                  const has3d = !!selectedProduct?.glbUrl;
-                  // Only show dots (switch option) if both media exist
-                  if (!(has2d && has3d)) return null;
-                  return (
-                    <div
-                      className="tab-dots"
-                      ref={tabDotsRef}
-                      onMouseDown={handleTabDotsDragStart}
-                      onTouchStart={handleTabDotsDragStart}
-                    >
-                      <span 
-                        className={`dot ${sheetTab === "2d" ? "active" : ""}`}
-                        onClick={() => setSheetTab("2d")}
-                        title="2D View"
-                      />
-                      <span 
-                        className={`dot ${sheetTab === "3d" ? "active" : ""}`}
-                        onClick={() => setSheetTab("3d")}
-                        title="3D View"
-                      />
-                    </div>
-                  );
-                })()}
-              </div>
-
-              <div className="sheet-title">{selectedProduct.name}</div>
-              <div className="sheet-desc">{selectedProduct.desc}</div>
-              <div className="sheet-price">
-                {formatPrice(selectedProduct.price)}
-              </div>
-
-              {/* Size Selector */}
-              <div className="section-title">SELECT SIZE</div>
-              <div className="size-selector">
-                {(selectedProduct.sizes || []).map((size) => (
-                  <button
-                    key={size}
-                    className={`size-btn ${
-                      selectedSize === size ? "active" : ""
-                    }`}
-                    onClick={() => setSelectedSize(size)}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-
-              {/* Stock / Availability */}
-              <div style={{ marginTop: 12 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: selectedProduct.available ? "#0a0" : "#b00020",
-                  }}
-                >
-                  {selectedProduct.available
-                    ? `In stock: ${selectedProduct.stock}`
-                    : "Out of stock"}
-                </div>
-              </div>
-
-              {/* Quantity Section */}
-              <div className="quantity-section">
-                <div className="section-title">QUANTITY</div>
-                <div className="quantity-controls" style={{ pointerEvents: 'auto' }}>
-                  <button
-                    type="button"
-                    className="qty-btn"
-                    style={{ pointerEvents: 'auto' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setQuantity(Math.max(1, quantity - 1));
-                    }}
-                    disabled={quantity <= 1}
-                  >
-                    −
-                  </button>
-                  <span className="qty-display">{quantity}</span>
-                  <button
-                    type="button"
-                    className="qty-btn"
-                    style={{ pointerEvents: 'auto' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setQuantity(Math.min(99, quantity + 1));
-                    }}
-                    disabled={
-                      !selectedProduct ||
-                      !selectedProduct.available ||
-                      quantity >= selectedProduct.stock
-                    }
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="sheet-actions">
-                {selectedProduct.preOrder ? (
-                  <div style={{ width: '100%' }}>
-                    {!preOrderSuccess ? (
-                      <>
-                        <div style={{ marginBottom: 10, fontSize: 12, color: '#666', fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>
-                          Pre-order email
-                        </div>
-                        <input
-                          value={preOrderEmail}
-                          onChange={(e) => setPreOrderEmail(e.target.value)}
-                          placeholder="you@example.com"
-                          type="email"
-                          style={{ width: '100%', padding: 12, borderRadius: 10, border: '1px solid #e0e0e0', marginBottom: 12, boxSizing: 'border-box' }}
-                        />
-                        <button
-                          type="button"
-                          className="action-btn primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePreOrder();
-                          }}
-                          disabled={preOrderSubmitting}
-                          style={{ width: '100%' }}
-                        >
-                          {preOrderSubmitting ? 'SUBMITTING...' : 'PRE-ORDER'}
-                        </button>
-                        <div style={{ marginTop: 10, fontSize: 12, color: '#666' }}>
-                          You’ll receive a confirmation email for this item.
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{ padding: 14, borderRadius: 12, background: '#e8f5e9', border: '1px solid #c8e6c9', color: '#1b5e20', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.7, textAlign: 'center' }}>
-                        Pre-order confirmed
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="action-btn primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddToCart();
-                      }}
-                    >
-                      ADD TO CART
-                    </button>
-                    <button
-                      type="button"
-                      className="action-btn secondary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBuyNow();
-                      }}
-                    >
-                      BUY NOW
-                    </button>
-                  </>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      {/* World page bottom sheet removed */}
     </div>
   );
 }

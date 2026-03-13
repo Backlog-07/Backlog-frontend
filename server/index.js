@@ -10,6 +10,7 @@ const path = require('path');
 const multer = require('multer');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
+const sharp = require('sharp');
 
 // Load environment variables from .env file
 require('dotenv').config();
@@ -558,12 +559,65 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+const IMAGE_TARGET_SIZE = Number(process.env.IMAGE_TARGET_SIZE) || 1024;
+const IMAGE_MAX_SIZE = Number(process.env.IMAGE_MAX_SIZE) || 2048;
+
+async function validateAndNormalizeSquareImage(filePath) {
+  // Read metadata
+  const img = sharp(filePath, { failOn: 'none' });
+  const meta = await img.metadata();
+
+  const w = Number(meta.width) || 0;
+  const h = Number(meta.height) || 0;
+  if (!w || !h) throw new Error('Invalid image');
+
+  // Enforce square upload
+  if (w !== h) {
+    throw new Error('Image must be square (1:1).');
+  }
+
+  // Enforce maximum dimension
+  if (w > IMAGE_MAX_SIZE || h > IMAGE_MAX_SIZE) {
+    throw new Error(`Image too large. Max allowed is ${IMAGE_MAX_SIZE}x${IMAGE_MAX_SIZE}.`);
+  }
+
+  // Normalize to a single target size if needed (keeps transparency)
+  if (w !== IMAGE_TARGET_SIZE) {
+    const tmpPath = filePath + '.tmp';
+    await img
+      .resize(IMAGE_TARGET_SIZE, IMAGE_TARGET_SIZE, {
+        fit: 'fill',
+        withoutEnlargement: false,
+      })
+      // don't force any background; preserve alpha
+      .toFile(tmpPath);
+
+    await fs.promises.rename(tmpPath, filePath);
+  }
+}
+
 // Upload handling (images + glb)
-app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file' });
-  const url = '/uploads/' + req.file.filename;
-  console.log('File uploaded successfully:', url);
-  res.json({ url });
+app.post('/api/upload', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file' });
+
+    // Validate it's an image
+    if (!String(req.file.mimetype || '').startsWith('image/')) {
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+      return res.status(400).json({ error: 'Only image files are allowed' });
+    }
+
+    // Validate and normalize to standard square
+    await validateAndNormalizeSquareImage(req.file.path);
+
+    const url = '/uploads/' + req.file.filename;
+    console.log('Image uploaded successfully:', url);
+    return res.json({ url });
+  } catch (e) {
+    // cleanup
+    try { if (req.file?.path) fs.unlinkSync(req.file.path); } catch (err) {}
+    return res.status(400).json({ error: e?.message || 'Upload failed' });
+  }
 });
 
 // Upload GLB model for a product (admin)
@@ -647,7 +701,7 @@ app.get('/api/orders', requireAuth, (req, res) => {
 app.patch('/api/orders/:orderId/status', requireAuth, (req, res) => {
   try {
     const { orderId } = req.params;
-    const { orderStatus, paymentStatus } = req.body || {};
+    const { orderStatus, paymentStatus, partialPaidAmount, amountDue, paymentType } = req.body || {};
 
     const db = readDB();
     db.orders = db.orders || [];
@@ -664,6 +718,18 @@ app.patch('/api/orders/:orderId/status', requireAuth, (req, res) => {
 
     if (paymentStatus != null && String(paymentStatus).trim()) {
       next.paymentStatus = String(paymentStatus);
+    }
+
+    if (paymentType != null && String(paymentType).trim()) {
+      next.paymentType = String(paymentType);
+    }
+
+    if (partialPaidAmount != null && String(partialPaidAmount).trim() !== '') {
+      next.partialPaidAmount = Math.max(0, Number(partialPaidAmount) || 0);
+    }
+
+    if (amountDue != null && String(amountDue).trim() !== '') {
+      next.amountDue = Math.max(0, Number(amountDue) || 0);
     }
 
     next.updatedAt = new Date().toISOString();
@@ -774,7 +840,7 @@ app.get('/api/orders/by-contact', (req, res) => {
 app.post('/api/orders', async (req, res) => {
   console.log("Received order request:", req.body);
   try {
-    const { items, total, name, email, phone, address, city, state, pincode } = req.body;
+    const { items, total, name, email, phone, address, city, state, pincode, paymentMethod, paymentType, partialPaidAmount, amountDue, paymentStatus } = req.body;
 
     console.log("Order details:", { items, total, name, email });
 
@@ -807,10 +873,14 @@ app.post('/api/orders', async (req, res) => {
     }
 
     const orderId = Date.now();
+    const normalizedTotal = Number(total) || 0;
+    const normalizedPartialPaid = Number(partialPaidAmount) || 0;
+    const computedDue = Math.max(0, normalizedTotal - normalizedPartialPaid);
+
     const newOrder = {
       id: orderId,
       items,
-      total,
+      total: normalizedTotal,
       name,
       email,
       phone,
@@ -818,6 +888,11 @@ app.post('/api/orders', async (req, res) => {
       city,
       state,
       pincode,
+      paymentMethod: paymentMethod || 'COD',
+      paymentType: paymentType || ((paymentMethod || 'COD') === 'COD' ? 'PARTIAL' : 'FULL'),
+      partialPaidAmount: normalizedPartialPaid,
+      amountDue: Number.isFinite(Number(amountDue)) ? Math.max(0, Number(amountDue)) : computedDue,
+      paymentStatus: paymentStatus || ((paymentMethod || 'COD') === 'COD' ? 'Partially Paid' : 'Paid'),
       status: "pending",
       createdAt: new Date().toISOString(),
     };
@@ -1090,6 +1165,169 @@ app.get('/api/admin/product-stats', requireAuth, (req, res) => {
   } catch (e) {
     console.error('Failed to compute product stats:', e);
     return res.status(500).json({ error: 'Failed to compute stats' });
+  }
+});
+
+// Pre-orders
+// Public: create a pre-order for a product that has preOrder=true
+app.post('/api/preorders', async (req, res) => {
+  try {
+    const { productId, email, size, qty } = req.body || {};
+
+    if (!productId) return res.status(400).json({ error: 'productId required' });
+    if (!email || !String(email).includes('@')) return res.status(400).json({ error: 'valid email required' });
+
+    const db = readDB();
+    db.preOrders = db.preOrders || [];
+
+    const products = db.products || [];
+    const product = products.find((p) => String(p.id) === String(productId) || String(p.code) === String(productId));
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    if (!product.preOrder) return res.status(400).json({ error: 'This product is not available for pre-order' });
+
+    const preOrder = {
+      id: 'po-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+      productId: product.code || product.id,
+      productName: product.name,
+      email: String(email).trim(),
+      size: size || null,
+      qty: Number(qty) || 1,
+      createdAt: new Date().toISOString(),
+    };
+
+    db.preOrders.unshift(preOrder);
+    writeDB(db);
+
+    // Best-effort email (skip if not configured)
+    try {
+      if (transporter) {
+        const productName = product?.name || preOrder.productName || 'Item';
+        const itemId = product?.code || product?.id || preOrder.productId;
+        const html = `
+          <!doctype html>
+          <html><head><meta charset="utf-8" />
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #333; }
+              .wrap { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background:#000; color:#fff; padding: 22px; border-radius: 10px 10px 0 0; text-align:center; }
+              .card { border:1px solid #eee; border-top:0; padding: 22px; border-radius: 0 0 10px 10px; }
+              .badge { display:inline-block; padding:6px 10px; border-radius: 999px; background:#fff7e6; border:1px solid #ffd591; color:#7a4b00; font-weight:800; font-size:12px; }
+            </style>
+          </head>
+          <body>
+            <div class="wrap">
+              <div class="header"><h1 style="margin:0; font-size: 20px; letter-spacing: 1px;">Pre-order Confirmed</h1></div>
+              <div class="card">
+                <p><span class="badge">PRE-ORDER</span></p>
+                <p>We’ve received your pre-order request for:</p>
+                <p style="font-size:18px; font-weight:900; margin: 10px 0;">${productName}</p>
+                <p><strong>Item ID:</strong> ${itemId}</p>
+                <p><strong>Requested size:</strong> ${preOrder.size || 'N/A'}</p>
+                <p><strong>Quantity:</strong> ${preOrder.qty || 1}</p>
+                <p style="margin-top:16px; color:#666; font-size: 13px;">Reference: ${preOrder.id}</p>
+              </div>
+            </div>
+          </body></html>
+        `;
+
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER || 'noreply@backlog.com',
+          to: preOrder.email,
+          subject: `Pre-order Confirmation - ${productName}`,
+          html,
+        });
+      }
+    } catch (e) {
+      // non-fatal
+      console.error('Pre-order email failed (non-fatal):', e?.message || e);
+    }
+
+    return res.json({ ok: true, preOrderId: preOrder.id });
+  } catch (e) {
+    console.error('Pre-order error:', e);
+    return res.status(500).json({ error: 'Failed to create pre-order' });
+  }
+});
+
+// Admin: list pre-orders
+app.get('/api/preorders', requireAuth, (req, res) => {
+  try {
+    const db = readDB();
+    const list = Array.isArray(db.preOrders) ? db.preOrders.slice() : [];
+    // ensure latest first
+    list.sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0));
+    return res.json({ ok: true, preOrders: list });
+  } catch (e) {
+    console.error('Failed to list pre-orders:', e);
+    return res.status(500).json({ ok: false, error: 'Failed to list pre-orders' });
+  }
+});
+
+// Admin: re-send pre-order confirmation email
+app.post('/api/preorders/:id/resend', requireAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!id) return res.status(400).json({ ok: false, error: 'id required' });
+
+    const db = readDB();
+    db.preOrders = db.preOrders || [];
+
+    const po = (db.preOrders || []).find((x) => String(x.id) === id);
+    if (!po) return res.status(404).json({ ok: false, error: 'Pre-order not found' });
+
+    // Find product if possible
+    const products = db.products || [];
+    const product = products.find((p) => String(p.id) === String(po.productId) || String(p.code) === String(po.productId));
+
+    let emailSent = false;
+    if (transporter) {
+      try {
+        const productName = product?.name || po.productName || 'Item';
+        const itemId = product?.code || product?.id || po.productId;
+        const html = `
+          <!doctype html>
+          <html><head><meta charset="utf-8" />
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #333; }
+              .wrap { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background:#000; color:#fff; padding: 22px; border-radius: 10px 10px 0 0; text-align:center; }
+              .card { border:1px solid #eee; border-top:0; padding: 22px; border-radius: 0 0 10px 10px; }
+              .badge { display:inline-block; padding:6px 10px; border-radius: 999px; background:#fff7e6; border:1px solid #ffd591; color:#7a4b00; font-weight:800; font-size:12px; }
+            </style>
+          </head>
+          <body>
+            <div class="wrap">
+              <div class="header"><h1 style="margin:0; font-size: 20px; letter-spacing: 1px;">Pre-order Confirmed</h1></div>
+              <div class="card">
+                <p><span class="badge">PRE-ORDER</span></p>
+                <p>We’ve received your pre-order request for:</p>
+                <p style="font-size:18px; font-weight:900; margin: 10px 0;">${productName}</p>
+                <p><strong>Item ID:</strong> ${itemId}</p>
+                <p><strong>Requested size:</strong> ${po.size || 'N/A'}</p>
+                <p><strong>Quantity:</strong> ${po.qty || 1}</p>
+                <p style="margin-top:16px; color:#666; font-size: 13px;">Reference: ${po.id}</p>
+              </div>
+            </div>
+          </body></html>
+        `;
+
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER || 'noreply@backlog.com',
+          to: po.email,
+          subject: `Pre-order Confirmation - ${productName}`,
+          html,
+        });
+
+        emailSent = true;
+      } catch (e) {
+        emailSent = false;
+      }
+    }
+
+    return res.json({ ok: true, emailSent });
+  } catch (e) {
+    console.error('Failed to resend pre-order email:', e);
+    return res.status(500).json({ ok: false, error: 'Failed to resend pre-order email' });
   }
 });
 

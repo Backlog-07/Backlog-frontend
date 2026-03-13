@@ -41,21 +41,37 @@ const Shop = () => {
           onClick={() => handleProductClick(product)}
           style={{ cursor: "pointer" }}
         >
-          <img
-            // Avoid bubbling edge-cases if user taps image quickly while sheet is closing
+          <div
+            className="shop-thumb"
             onClick={(e) => e.stopPropagation()}
-            src={`${API_BASE}${product.imageUrl}`}
-            alt={product.name}
             style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
+              width: 160,
+              aspectRatio: '1 / 1',
+              overflow: 'hidden',
+              borderRadius: 12,
+              background: 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 10,
             }}
-            onError={(e) => {
-              console.error("Image load error:", product.imageUrl);
-              e.target.src = "/placeholder.png";
-            }}
-          />
+          >
+            <img
+              src={`${API_BASE}${product.imageUrl}`}
+              alt={product.name}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                background: 'transparent',
+                display: 'block',
+              }}
+              onError={(e) => {
+                console.error('Image load error:', product.imageUrl);
+                e.target.src = '/placeholder.png';
+              }}
+            />
+          </div>
           <h2 onClick={(e) => e.stopPropagation()}>{product.name}</h2>
           <p onClick={(e) => e.stopPropagation()}>{product.description}</p>
           <p onClick={(e) => e.stopPropagation()}>${product.price}</p>

@@ -384,6 +384,7 @@ button {
   opacity: 0.6;
   pointer-events: none;
   border-radius: inherit;
+  z-index: 0;
 }
 
 /* ==================== MICRO NOISE (OPTIONAL BUT PREMIUM) ==================== */
@@ -397,6 +398,7 @@ button {
 
   pointer-events: none;
   border-radius: inherit;
+  z-index: 0;
 }
 
 /* ==================== CLOSE BUTTON ==================== */
@@ -527,6 +529,8 @@ button {
   opacity: 1;
   transform: translateY(0);
   transition-delay: 0ms;
+  position: relative;
+  z-index: 1;
 }
 
 /* ==================== SIZE SELECTOR ==================== */
@@ -2038,21 +2042,62 @@ canvas {
 
 .sheet-2d-view {
   width: 100%;
-  height: 300px;
-  margin-bottom: 24px;
+  max-width: 420px;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  margin: 0 auto 24px;
+
   border-radius: 16px;
   overflow: hidden;
-  background: #f9f9f9;
-  border: 1px solid #e0e0e0;
+
+  /* ensure transparency (no tinted bg) */
+  background: transparent;
+
+  /* remove border which can look like a colored background on glass */
+  border: none;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  isolation: isolate;
+  position: relative;
+  z-index: 2;
 }
 
 .sheet-2d-view img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+
+  /* no stretching; keep full image visible */
+  object-fit: contain;
+  object-position: center;
+
+  /* eliminate any default inline-gap behavior */
+  display: block;
+
+  background: transparent;
+}
+
+/* Hard kill any backdrop/overlay behind 2D image area */
+.sheet-2d-view,
+.sheet-2d-view * {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+@media (max-width: 768px) {
+  .sheet-2d-view {
+    max-width: 360px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sheet-2d-view {
+    max-width: 300px;
+    border-radius: 12px;
+  }
 }
 
 /* ==================== 3D VIEW ==================== */
@@ -2060,7 +2105,7 @@ canvas {
 .sheet-3d-view {
   position: relative;
   width: 100%;
-  height: 300px;
+  height: 260px;
   margin-bottom: 24px;
   border-radius: 16px;
   overflow: hidden;
@@ -2077,6 +2122,7 @@ canvas {
     0 18px 40px rgba(0, 0, 0, 0.18);
   padding-top: 10px;
   box-sizing: border-box;
+  z-index: 2;
 }
 
 .sheet-3d-view::before {
