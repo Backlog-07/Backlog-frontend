@@ -88,7 +88,8 @@ function Box({ product, small }) {
 }
 
 export default function ProductPreview({ product = {}, small = false }) {
-  const size = small ? { width: 200, height: 240 } : { width: 360, height: 420 };
+  // Increase the rendered preview size so 2D images look less shrunken on the shop page
+  const size = small ? { width: 260, height: 310 } : { width: 440, height: 520 };
 
   return (
     <div style={{ width: size.width, height: size.height, borderRadius: 8, overflow: 'hidden' }}>

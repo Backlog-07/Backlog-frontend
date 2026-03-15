@@ -9,9 +9,26 @@ require("dotenv").config();
 const app = express();
 const PORT = 4000;
 
-app.use(cors());
+// Allow frontend to fetch images in a canvas-safe way
+app.use(
+  cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 app.use(express.json());
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// IMPORTANT: set CORP so <img crossOrigin="anonymous"> can be drawn to canvas
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(path.join(__dirname, "uploads"))
+);
 
 // Ensure data directories exist
 const dataDir = path.join(__dirname, "data");

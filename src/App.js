@@ -718,6 +718,7 @@ function MainApp() {
                             : `${API_BASE}${selectedProduct.imageUrl}`
                         }
                         alt={selectedProduct.name}
+                        className="sheet-2d-image"
                         onError={(e) => {
                           console.error('Image failed to load:', selectedProduct.imageUrl);
                           e.target.style.display = 'none';

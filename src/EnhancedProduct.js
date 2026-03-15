@@ -35,7 +35,8 @@ function ImageTile({ imageUrl, active }) {
   return (
     <group>
       <mesh>
-        <planeGeometry args={[0.62, 0.98]} />
+        {/* Wider 2D tile so images don't look squeezed */}
+        <planeGeometry args={[0.9, 0.98]} />
         {texture ? (
           <meshBasicMaterial
             map={texture}

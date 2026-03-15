@@ -21,6 +21,56 @@ export default function World({ onSelect }) {
   const [worldImages, setWorldImages] = useState([]);
   const [loadingImages, setLoadingImages] = useState(true);
 
+  // Reserve fixed UI space so carousel never sits behind header/joystick.
+  const UI_TOP = 86; // header
+
+  // Manual tuning: keep reasonable bottom reserve; don't over-shift.
+  const JOYSTICK_SAFE_MARGIN = 60;
+  const [uiBottom, setUiBottom] = useState(360);
+
+  useEffect(() => {
+    const measure = () => {
+      if (typeof document === 'undefined') return;
+      const el = document.querySelector('.joystick-wrapper');
+      if (!el) {
+        setUiBottom(360);
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || 800;
+      const reserved = Math.max(320, Math.ceil(vh - rect.top + JOYSTICK_SAFE_MARGIN));
+      setUiBottom(reserved);
+    };
+
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
+    const t = setTimeout(measure, 60);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('orientationchange', measure);
+    };
+  }, []);
+
+  // Responsive stage height based on available viewport space.
+  const [viewportH, setViewportH] = useState(
+    typeof window !== "undefined" ? window.innerHeight : 800
+  );
+
+  useEffect(() => {
+    const onResize = () => setViewportH(window.innerHeight || 800);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const stageHeightPx = useMemo(() => {
+    const available = Math.max(240, (viewportH || 800) - UI_TOP - uiBottom);
+    return Math.min(620, available);
+  }, [viewportH, uiBottom]);
+
+  const stageHeightCss = `${stageHeightPx}px`;
+
   // A continuous floating index; snapping targets integers.
   const indexRef = useRef(0);
   const targetIndexRef = useRef(0);
@@ -347,9 +397,8 @@ export default function World({ onSelect }) {
         inset: 0,
         background: "#fff",
         overflow: "hidden",
-        // Reserve space for existing UI (header/joystick)
-        paddingTop: 86,
-        paddingBottom: 190,
+        paddingTop: UI_TOP,
+        paddingBottom: uiBottom,
         boxSizing: "border-box",
       }}
     >
@@ -369,6 +418,8 @@ export default function World({ onSelect }) {
           touchAction: "pan-y",
           cursor: draggingRef.current ? "grabbing" : "grab",
           userSelect: "none",
+          /* Shift carousel slightly upward to avoid joystick overlap */
+          paddingTop: 0,
         }}
       >
         <div
@@ -376,7 +427,8 @@ export default function World({ onSelect }) {
           style={{
             position: "relative",
             width: "100vw",
-            height: "min(58vh, 620px)",
+            height: stageHeightCss,
+            transform: "translateY(-38px)",
           }}
         >
           {items.map(({ idx, rel }) => {

@@ -2042,13 +2042,12 @@ canvas {
 
 .sheet-2d-view {
   width: 100%;
-  max-width: 420px;
-  aspect-ratio: 1 / 1;
-  height: auto;
+  max-width: 640px;
+  height: min(52vh, 520px);
   margin: 0 auto 24px;
 
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
 
   /* ensure transparency (no tinted bg) */
   background: transparent;
@@ -2066,37 +2065,43 @@ canvas {
 }
 
 .sheet-2d-view img {
-  width: 100%;
+  width: auto;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
 
-  /* no stretching; keep full image visible */
   object-fit: contain;
   object-position: center;
 
-  /* eliminate any default inline-gap behavior */
   display: block;
 
   background: transparent;
 }
 
-/* Hard kill any backdrop/overlay behind 2D image area */
-.sheet-2d-view,
-.sheet-2d-view * {
-  background-color: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+/* Explicit class used by the 2D image in the shop bottom sheet */
+.sheet-2d-image {
+  width: auto !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  object-position: center !important;
 }
 
 @media (max-width: 768px) {
   .sheet-2d-view {
-    max-width: 360px;
+    max-width: 560px;
+    height: 240px;
+    margin-bottom: 20px;
   }
 }
 
 @media (max-width: 480px) {
   .sheet-2d-view {
-    max-width: 300px;
+    max-width: 420px;
+    height: 200px;
     border-radius: 12px;
+    margin-bottom: 16px;
   }
 }
 
@@ -3034,5 +3039,58 @@ canvas {
   }
   .orders-detail-row {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ==================== SHOP (MAIN GRID) ==================== */
+
+.shop {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 120px 60px 140px;
+
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+  gap: 56px;
+  justify-items: center;
+  align-items: start;
+}
+
+.product {
+  width: 100%;
+  max-width: 520px;
+}
+
+.product .shop-thumb {
+  width: 100% !important;
+  max-width: 520px;
+}
+
+@media (max-width: 1100px) {
+  .shop {
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+  .product {
+    max-width: 420px;
+  }
+  .product .shop-thumb {
+    max-width: 420px;
+  }
+}
+
+@media (max-width: 520px) {
+  .shop {
+    grid-template-columns: 1fr;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .product {
+    max-width: 100%;
+  }
+  .product .shop-thumb {
+    max-width: 100%;
   }
 }
