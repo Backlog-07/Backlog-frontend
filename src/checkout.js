@@ -2,7 +2,97 @@ import { useState, useEffect } from "react";
 import "./checkout.css";
 
 const API_BASE = (process.env.REACT_APP_API_URL || "http://localhost:4000").replace(/\/$/, "");
-const SHIPPING_CHARGE = 99; // ₹99 shipping charge
+const DEFAULT_SHIPPING_CHARGE = 99;
+
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(false);
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+async function getRazorpayKeyId() {
+  // allow env override, otherwise ask server
+  const envKey = process.env.REACT_APP_RAZORPAY_KEY_ID;
+  if (envKey) return envKey;
+  const res = await fetch(`${API_BASE}/api/payments/razorpay/key`);
+  const data = await res.json().catch(() => ({}));
+  return data.keyId;
+}
+
+async function createRazorpayOrder({ amountPaise, receipt, notes }) {
+  const res = await fetch(`${API_BASE}/api/payments/razorpay/order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount: amountPaise, currency: 'INR', receipt, notes }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to create payment order');
+  return data.order;
+}
+
+async function verifyRazorpayPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature }) {
+  const res = await fetch(`${API_BASE}/api/payments/razorpay/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ razorpay_order_id, razorpay_payment_id, razorpay_signature }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Payment verification failed');
+  if (!data.verified) throw new Error('Payment verification failed');
+  return true;
+}
+
+async function openRazorpayCheckout({
+  key,
+  order,
+  amountPaise,
+  name,
+  description,
+  prefill,
+  notes,
+}) {
+  const ok = await loadRazorpayScript();
+  if (!ok) throw new Error('Failed to load Razorpay');
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      key,
+      amount: amountPaise,
+      currency: 'INR',
+      name: name || 'Backlog',
+      description: description || 'Order Payment',
+      order_id: order.id,
+      prefill,
+      notes,
+      theme: { color: '#000000' },
+      handler: async function (response) {
+        try {
+          await verifyRazorpayPayment(response);
+          resolve(response);
+        } catch (e) {
+          reject(e);
+        }
+      },
+      modal: {
+        ondismiss: function () {
+          reject(new Error('Payment cancelled'));
+        },
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', function (resp) {
+      reject(new Error(resp?.error?.description || 'Payment failed'));
+    });
+    rzp.open();
+  });
+}
 
 const formatPrice = (value) => {
   if (value == null) return "₹0";
@@ -11,6 +101,7 @@ const formatPrice = (value) => {
 
 export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
+  const [shippingCharge, setShippingCharge] = useState(DEFAULT_SHIPPING_CHARGE);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -23,9 +114,6 @@ export default function CheckoutPage() {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cod"); // "cod" or "online"
   const [codConfirmed, setCodConfirmed] = useState(false);
-  const [partialModalOpen, setPartialModalOpen] = useState(false);
-  const [partialPaid, setPartialPaid] = useState(false);
-  const PARTIAL_PAY_AMOUNT = SHIPPING_CHARGE; // pay now (advance/shipping)
   const [submitting, setSubmitting] = useState(false);
   const [outOfStockItems, setOutOfStockItems] = useState([]);
 
@@ -38,6 +126,15 @@ export default function CheckoutPage() {
       const parsed = raw ? JSON.parse(raw) : [];
       setCart(parsed);
       validateStock(parsed);
+      // Load shipping charge from server (admin-controlled)
+      fetch(`${API_BASE}/api/settings/public`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d && d.ok && Number.isFinite(Number(d.shippingCharge))) {
+            setShippingCharge(Number(d.shippingCharge));
+          }
+        })
+        .catch(() => {});
     } catch (e) {
       setCart([]);
     } finally {
@@ -94,29 +191,67 @@ export default function CheckoutPage() {
   };
 
   const getTotalWithShipping = () => {
-    return getTotalPrice() + SHIPPING_CHARGE;
+    return getTotalPrice() + (Number(shippingCharge) || 0);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (paymentMethod === "cod") {
-      if (!codConfirmed) {
-        alert("Please confirm the partial payment before placing the order.");
-        return;
-      }
-      if (!partialPaid) {
-        setPartialModalOpen(true);
-        return;
-      }
+
+    if (cart.length === 0) {
+      alert('Cart is empty');
+      return;
     }
+    if (outOfStockItems.length > 0) {
+      alert('Please remove out of stock items before checkout.');
+      return;
+    }
+
+    // COD requires user confirmation
+    if (paymentMethod === "cod" && !codConfirmed) {
+      alert("Please confirm the partial payment before placing the order.");
+      return;
+    }
+
     setSubmitting(true);
     try { window.__ensureBootLoader && window.__ensureBootLoader(); } catch {}
 
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
       const total = getTotalWithShipping();
+      const PARTIAL_PAY_AMOUNT = Number(shippingCharge) || 0;
+      const payNow = paymentMethod === 'cod' ? PARTIAL_PAY_AMOUNT : total;
+
+      // 1) Take payment via Razorpay
+      const keyId = await getRazorpayKeyId();
+      if (!keyId) throw new Error('Razorpay key not configured');
+
+      const receipt = `order_${Date.now()}`;
+      const rzpOrder = await createRazorpayOrder({
+        amountPaise: Math.round(Number(payNow) * 100),
+        receipt,
+        notes: {
+          payType: paymentMethod === 'cod' ? 'PARTIAL' : 'FULL',
+          total: String(total),
+        },
+      });
+
+      const paymentResp = await openRazorpayCheckout({
+        key: keyId,
+        order: rzpOrder,
+        amountPaise: rzpOrder.amount,
+        name: 'Backlog',
+        description: paymentMethod === 'cod' ? 'Partial payment (Shipping)' : 'Full payment',
+        prefill: {
+          name: formData.name,
+          email: formData.email,
+          contact: formData.phone,
+        },
+        notes: {
+          receipt,
+          app: 'Backlog',
+        },
+      });
+
+      // 2) Place website order after payment verification
       const partialPaidAmount = paymentMethod === 'cod' ? PARTIAL_PAY_AMOUNT : total;
       const amountDue = Math.max(0, total - partialPaidAmount);
 
@@ -135,6 +270,13 @@ export default function CheckoutPage() {
         partialPaidAmount,
         amountDue,
         paymentStatus: paymentMethod === 'cod' ? 'Partially Paid' : 'Paid',
+        // record razorpay fields for admin visibility
+        razorpay: {
+          orderId: paymentResp.razorpay_order_id,
+          paymentId: paymentResp.razorpay_payment_id,
+          signature: paymentResp.razorpay_signature,
+          paidAmount: payNow,
+        },
       };
 
       const res = await fetch(`${API_BASE}/api/orders`, {
@@ -143,28 +285,24 @@ export default function CheckoutPage() {
         body: JSON.stringify(orderData),
       });
 
-      if (!res.ok) throw new Error("Failed to place order");
+      const placed = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(placed.error || "Failed to place order");
 
-      const placed = await res.json();
       try {
         if (placed?.orderId) localStorage.setItem("lastOrderId", String(placed.orderId));
         if (formData.email) localStorage.setItem("lastOrderEmail", String(formData.email));
         if (formData.phone) localStorage.setItem("lastOrderPhone", String(formData.phone));
       } catch {}
-      
-      // Clear cart
+
       localStorage.removeItem("cart");
-      
-      // Show success animation
       setOrderPlaced(true);
-      
-      // Redirect after 3 seconds
+
       setTimeout(() => {
         window.location.href = "/";
       }, 3000);
     } catch (err) {
-      console.error("Order error:", err);
-      alert("Failed to place order. Please try again.");
+      console.error("Checkout error:", err);
+      alert(err?.message || "Failed to complete payment/order. Please try again.");
     } finally {
       setSubmitting(false);
       try { window.__hideBootLoader && window.__hideBootLoader(); } catch {}
@@ -208,90 +346,6 @@ export default function CheckoutPage() {
 
   return (
     <div className="checkout-wrapper">
-      {partialModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={() => setPartialModalOpen(false)}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: 420,
-              background: '#fff',
-              borderRadius: 16,
-              padding: 20,
-              boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontSize: 14, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase' }}>
-              Pay now (Partial Payment)
-            </div>
-            <div style={{ marginTop: 10, color: '#666', fontSize: 13, lineHeight: 1.5 }}>
-              You will pay <strong>{formatPrice(PARTIAL_PAY_AMOUNT)}</strong> now.
-              Remaining amount will be collected at your doorstep.
-            </div>
-
-            <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: '#f9f9f9', border: '1px solid #eee', fontSize: 13 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span>Total</span>
-                <strong>{formatPrice(getTotalWithShipping())}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span>Pay now</span>
-                <strong>{formatPrice(PARTIAL_PAY_AMOUNT)}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Due on delivery</span>
-                <strong>{formatPrice(Math.max(0, getTotalWithShipping() - PARTIAL_PAY_AMOUNT))}</strong>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button
-                type="button"
-                className="action-btn secondary"
-                style={{ flex: 1, padding: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8 }}
-                onClick={() => setPartialModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="action-btn primary"
-                style={{ flex: 1, padding: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8 }}
-                onClick={() => {
-                  // Test-mode: mark as paid and continue
-                  setPartialPaid(true);
-                  setPartialModalOpen(false);
-                  // continue checkout flow
-                  setTimeout(() => {
-                    const fakeEvt = { preventDefault: () => {} };
-                    handleSubmit(fakeEvt);
-                  }, 0);
-                }}
-              >
-                Pay {formatPrice(PARTIAL_PAY_AMOUNT)}
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 12, color: '#999' }}>
-              Test mode: this simulates payment success.
-            </div>
-          </div>
-        </div>
-      )}
       <header className="checkout-header">
         <div className="checkout-logo">Backlog</div>
         <h1 className="checkout-title">CHECKOUT</h1>
@@ -384,7 +438,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="price-row">
                   <span>Shipping</span>
-                  <span>{formatPrice(SHIPPING_CHARGE)}</span>
+                  <span>{formatPrice(shippingCharge)}</span>
                 </div>
                 <div className="price-row total">
                   <span>TOTAL</span>
@@ -511,7 +565,7 @@ export default function CheckoutPage() {
                   />
                   <span className="payment-label">
                     <span className="payment-name">Cash on Delivery (COD)</span>
-                    <span className="payment-desc">Pay {formatPrice(SHIPPING_CHARGE)} now, rest on delivery</span>
+                    <span className="payment-desc">Pay {formatPrice(shippingCharge)} now, rest on delivery</span>
                   </span>
                 </label>
 
@@ -543,7 +597,7 @@ export default function CheckoutPage() {
                       onChange={(e) => setCodConfirmed(e.target.checked)}
                     />
                     <span>
-                      I confirm to pay shipping charge of {formatPrice(SHIPPING_CHARGE)} now via UPI/Card and rest amount on delivery
+                      I confirm to pay shipping charge of {formatPrice(shippingCharge)} now via UPI/Card and rest amount on delivery
                     </span>
                   </label>
                 </div>
@@ -568,7 +622,7 @@ export default function CheckoutPage() {
             >
               {submitting ? "Processing Order..." : 
                outOfStockItems.length > 0 ? "Remove Out of Stock Items" :
-               "Place Order (Test Mode - No Payment)"}
+               "Place Order"}
             </button>
 
             {outOfStockItems.length > 0 ? (
@@ -588,7 +642,7 @@ export default function CheckoutPage() {
                 color: "#666", 
                 marginTop: "16px" 
               }}>
-                🧪 Test Mode: No payment required. Order will be placed immediately.
+                ✓ Secure & encrypted transaction
               </p>
             )}
 

@@ -80,6 +80,50 @@ export default function AdminPanel() {
 
   const [ordersSubTab, setOrdersSubTab] = useState('partial'); // 'partial' | 'full'
 
+  // Settings (shipping charge)
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [shippingCharge, setShippingCharge] = useState(99);
+  const [shippingSaving, setShippingSaving] = useState(false);
+  const [shippingError, setShippingError] = useState('');
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const loadSettings = useCallback(async () => {
+    setSettingsLoading(true);
+    setShippingError('');
+    try {
+      const res = await authFetch('/api/admin/settings');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to load settings');
+      const sc = Number(data?.settings?.shippingCharge);
+      if (Number.isFinite(sc)) setShippingCharge(sc);
+    } catch (e) {
+      setShippingError(e?.message || 'Failed to load settings');
+    } finally {
+      setSettingsLoading(false);
+    }
+  }, []);
+
+  const saveShippingCharge = useCallback(async () => {
+    setShippingSaving(true);
+    setShippingError('');
+    try {
+      const res = await authFetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shippingCharge: Number(shippingCharge) || 0 }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to save settings');
+      const sc = Number(data?.settings?.shippingCharge);
+      if (Number.isFinite(sc)) setShippingCharge(sc);
+    } catch (e) {
+      setShippingError(e?.message || 'Failed to save');
+    } finally {
+      setShippingSaving(false);
+    }
+  }, [shippingCharge]);
+
   useEffect(() => {
     const check = async () => {
       try {
@@ -193,8 +237,9 @@ export default function AdminPanel() {
       loadOrders();
       loadPreOrders();
       loadProductStats();
+      loadSettings();
     }
-  }, [tokenValid, loadProducts, loadWorldImages, loadOrders, loadPreOrders, loadProductStats]);
+  }, [tokenValid, loadProducts, loadWorldImages, loadOrders, loadPreOrders, loadProductStats, loadSettings]);
 
   // Connect to SSE for real-time order notifications
   useEffect(() => {
@@ -759,6 +804,134 @@ export default function AdminPanel() {
     maxHeight: '100vh'  
   }}
 >
+      {/* Side Settings Tab */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 140,
+          right: 0,
+          zIndex: 9998,
+          display: 'flex',
+          alignItems: 'stretch',
+          pointerEvents: 'auto',
+        }}
+      >
+        {/* handle */}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen((s) => !s)}
+          style={{
+            width: 44,
+            border: 'none',
+            background: '#000',
+            color: '#fff',
+            cursor: 'pointer',
+            borderTopLeftRadius: 12,
+            borderBottomLeftRadius: 12,
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 12,
+            fontWeight: 900,
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+          }}
+          title="Checkout settings"
+        >
+          {settingsOpen ? 'Close' : 'Settings'}
+        </button>
+
+        {/* panel */}
+        <div
+          style={{
+            width: settingsOpen ? 320 : 0,
+            overflow: 'hidden',
+            transition: 'width 220ms ease',
+            background: '#fff',
+            borderTopLeftRadius: 12,
+            borderBottomLeftRadius: 12,
+            boxShadow: '0 10px 40px rgba(0,0,0,0.18)',
+            border: '1px solid #eee',
+            borderRight: 'none',
+          }}
+        >
+          <div style={{ padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase' }}>
+              Checkout Settings
+            </div>
+            <div style={{ marginTop: 6, fontSize: 12, color: '#666', lineHeight: 1.4 }}>
+              Controls the shipping amount shown on checkout and used for COD partial payment.
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 900, color: '#666', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                Shipping (₹)
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={shippingCharge}
+                onChange={(e) => setShippingCharge(e.target.value)}
+                style={{ width: '100%', marginTop: 8, padding: '12px 12px', border: '1px solid #e0e0e0', borderRadius: 10, fontSize: 14, fontWeight: 900 }}
+                disabled={settingsLoading || shippingSaving}
+              />
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={saveShippingCharge}
+                  disabled={settingsLoading || shippingSaving}
+                  style={{
+                    flex: 1,
+                    padding: '12px 12px',
+                    background: '#000',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 900,
+                    letterSpacing: 0.8,
+                    textTransform: 'uppercase',
+                    cursor: settingsLoading || shippingSaving ? 'not-allowed' : 'pointer',
+                    opacity: settingsLoading || shippingSaving ? 0.7 : 1,
+                  }}
+                >
+                  {shippingSaving ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={loadSettings}
+                  disabled={settingsLoading || shippingSaving}
+                  style={{
+                    padding: '12px 12px',
+                    background: 'transparent',
+                    color: '#111',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 900,
+                    letterSpacing: 0.8,
+                    textTransform: 'uppercase',
+                    cursor: settingsLoading || shippingSaving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            {shippingError ? (
+              <div style={{ marginTop: 10, color: '#b00020', fontSize: 12, fontWeight: 900 }}>
+                {shippingError}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
       {/* Floating Notifications */}
       <div style={{
         position: 'fixed',

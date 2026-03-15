@@ -11,13 +11,13 @@
         "XL",
         "XXL"
       ],
-      "stock": 9,
+      "stock": 8,
       "available": true,
       "preOrder": false,
       "imageUrl": "/uploads/1773401330257-BACKLOG-(1).png",
       "glbUrl": null,
       "sizeStock": {
-        "S": 3,
+        "S": 2,
         "L": 2,
         "XL": 2,
         "XXL": 2
@@ -434,6 +434,35 @@
       "pincode": "g",
       "status": "pending",
       "createdAt": "2026-03-13T14:22:40.463Z"
+    },
+    {
+      "id": 1773571162932,
+      "items": [
+        {
+          "id": "p1773401330316518",
+          "name": "baggy shirt",
+          "price": "3456",
+          "size": "S",
+          "imageUrl": "/uploads/1773401330257-BACKLOG-(1).png",
+          "qty": 1,
+          "stockAvailable": 3
+        }
+      ],
+      "total": 3555,
+      "name": "Prabhdeep singh jassal",
+      "email": "prabhdeepsinghjassal@gmail.com",
+      "phone": "1234567899",
+      "address": "B5/45",
+      "city": "Nabha",
+      "state": "Punjab",
+      "pincode": "147201",
+      "paymentMethod": "ONLINE",
+      "paymentType": "FULL",
+      "partialPaidAmount": 3555,
+      "amountDue": 0,
+      "paymentStatus": "Paid",
+      "status": "pending",
+      "createdAt": "2026-03-15T10:39:22.932Z"
     }
   ],
   "worldImages": [
@@ -503,5 +532,8 @@
       "qty": 1,
       "createdAt": "2026-03-11T15:11:00.586Z"
     }
-  ]
+  ],
+  "settings": {
+    "shippingCharge": 150
+  }
 }

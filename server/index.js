@@ -11,6 +11,8 @@ const multer = require('multer');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const sharp = require('sharp');
+const crypto = require('crypto');
+const Razorpay = require('razorpay');
 
 // Load environment variables from .env file
 require('dotenv').config();
@@ -57,6 +59,12 @@ try {
 } catch (error) {
   console.error('✗ Failed to configure email transporter:', error.message);
 }
+
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const razorpay = RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET
+  ? new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET })
+  : null;
 
 app.use(cors());
 app.use(express.json());
@@ -156,6 +164,13 @@ function writeDB(data) {
   fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
 }
 
+// Global settings helpers
+function ensureSettings(db) {
+  db.settings = db.settings || {};
+  if (db.settings.shippingCharge == null) db.settings.shippingCharge = 99;
+  return db;
+}
+
 // Require auth accepts either environment token or token stored in db admin
 function requireAuth(req, res, next) {
   const auth = req.headers.authorization || '';
@@ -165,6 +180,32 @@ function requireAuth(req, res, next) {
   if (dbToken && auth === `Bearer ${dbToken}`) return next();
   return res.status(401).json({ error: 'Unauthorized' });
 }
+
+// Admin: get/update settings (shipping etc.)
+app.get('/api/admin/settings', requireAuth, (req, res) => {
+  const db = ensureSettings(readDB());
+  try { writeDB(db); } catch {}
+  return res.json({ ok: true, settings: db.settings });
+});
+
+app.put('/api/admin/settings', requireAuth, (req, res) => {
+  const { shippingCharge } = req.body || {};
+  const nextShipping = Number(shippingCharge);
+  if (!Number.isFinite(nextShipping) || nextShipping < 0) {
+    return res.status(400).json({ ok: false, error: 'shippingCharge must be a non-negative number' });
+  }
+
+  const db = ensureSettings(readDB());
+  db.settings.shippingCharge = Math.round(nextShipping);
+  writeDB(db);
+  return res.json({ ok: true, settings: db.settings });
+});
+
+// Public: expose shipping charge for checkout UI
+app.get('/api/settings/public', (req, res) => {
+  const db = ensureSettings(readDB());
+  return res.json({ ok: true, shippingCharge: Number(db.settings.shippingCharge) || 0 });
+});
 
 // Auth endpoint: check db-stored admin first; fallback to env defaults
 app.post('/api/auth/login', (req, res) => {
@@ -1328,6 +1369,68 @@ app.post('/api/preorders/:id/resend', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Failed to resend pre-order email:', e);
     return res.status(500).json({ ok: false, error: 'Failed to resend pre-order email' });
+  }
+});
+
+// Razorpay: expose public key for client
+app.get('/api/payments/razorpay/key', (req, res) => {
+  return res.json({ keyId: RAZORPAY_KEY_ID || null });
+});
+
+// Razorpay: create an order (amount in paise)
+app.post('/api/payments/razorpay/order', async (req, res) => {
+  try {
+    if (!razorpay) {
+      return res.status(500).json({ error: 'Razorpay is not configured on server' });
+    }
+
+    const { amount, currency = 'INR', receipt, notes } = req.body || {};
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return res.status(400).json({ error: 'amount (in paise) must be a positive number' });
+    }
+
+    const order = await razorpay.orders.create({
+      amount: Math.round(amt),
+      currency,
+      receipt: receipt || `rcpt_${Date.now()}`,
+      notes: notes || {},
+    });
+
+    return res.json({ order });
+  } catch (e) {
+    console.error('Razorpay order create failed:', e);
+    return res.status(500).json({ error: 'Failed to create Razorpay order' });
+  }
+});
+
+// Razorpay: verify signature
+app.post('/api/payments/razorpay/verify', async (req, res) => {
+  try {
+    if (!RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ error: 'Razorpay is not configured on server' });
+    }
+
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ error: 'Missing payment verification fields' });
+    }
+
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expected = crypto
+      .createHmac('sha256', RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest('hex');
+
+    const ok = expected === razorpay_signature;
+    if (!ok) {
+      return res.status(400).json({ verified: false, error: 'Invalid signature' });
+    }
+
+    return res.json({ verified: true });
+  } catch (e) {
+    console.error('Razorpay verify failed:', e);
+    return res.status(500).json({ error: 'Verification failed' });
   }
 });
 

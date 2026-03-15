@@ -155,7 +155,7 @@ export default function EnhancedProduct({ position, active, onClick, product, in
       meshRef.current.rotation.y = 0;
     }
 
-    const targetScale = active ? 1.3 : 0.95;
+    const targetScale = active ? 2.0 : 1.02;
     meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.08);
   });
 
