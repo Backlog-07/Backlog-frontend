@@ -142,15 +142,18 @@ function EnhancedProduct({ position, active, onClick, product, index = 0, railY 
   const baseY = typeof railY === "number" ? railY : 0.6;
 
   useFrame((state) => {
-    if (!meshRef.current || !hasGlb) return;
+    if (!meshRef.current) return;
 
-    if (!active) {
+    // Rotate ONLY 3D models (GLB). Keep 2D tiles (image/legacy) static.
+    if (!hasGlb) {
       meshRef.current.rotation.y = 0;
       return;
     }
 
-    const baseSpin = state.clock.elapsedTime * 0.3;
-    const mouseInfluence = mouse.x * 0.2;
+    // Mouse influence is strongest on the active item.
+    const spinSpeed = 0.55;
+    const baseSpin = state.clock.elapsedTime * spinSpeed;
+    const mouseInfluence = active ? mouse.x * 0.2 : 0;
     meshRef.current.rotation.y = baseSpin + mouseInfluence;
   });
 

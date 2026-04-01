@@ -669,7 +669,7 @@ function MainApp() {
                               }
                               setTimeout(() => handleAddToCart(), 0);
                            }}>
-                              Ajouter au panier - {formatPrice(selectedProduct.price)}
+                              Add to cart - {formatPrice(selectedProduct.price)}
                            </button>
                         </div>
                     </>
@@ -747,7 +747,7 @@ function MainApp() {
                                  }
                                  setTimeout(() => handleAddToCart(), 0);
                               }}>
-                                 Ajouter au panier - {formatPrice(selectedProduct.price)}
+                                 Add to cart - {formatPrice(selectedProduct.price)}
                               </button>
                            </div>
                        </div>
