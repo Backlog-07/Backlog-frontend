@@ -7,7 +7,7 @@ const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const app = express();
-const PORT = 4000;
+const PORT = Number(process.env.PORT || 4000);
 
 // Allow frontend to fetch images in a canvas-safe way
 app.use(
@@ -407,8 +407,11 @@ function requireAuth(req, res, next) {
   const auth = req.headers.authorization || "";
 
   // Accept env token (legacy)
-  const envToken = process.env.AUTH_TOKEN || "admintoken12345";
-  if (auth === `Bearer ${envToken}`) return next();
+  const envToken = process.env.AUTH_TOKEN;
+  if (envToken && auth === `Bearer ${envToken}`) return next();
+  // Back-compat default only for local dev if AUTH_TOKEN not provided
+  const fallbackToken = "admintoken12345";
+  if (!envToken && auth === `Bearer ${fallbackToken}`) return next();
 
   // Accept db-stored admin token (used by AdminPanel login)
   try {

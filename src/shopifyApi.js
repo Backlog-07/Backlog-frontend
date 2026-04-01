@@ -1,7 +1,14 @@
 // Shopify Storefront API utility
-// Replace these with your actual values:
-const SHOPIFY_DOMAIN = "backlogtest1.myshopify.com";
-const STOREFRONT_API_TOKEN = "ca6a5be465d2457c85a4cbe0146783a5";
+const SHOPIFY_DOMAIN = process.env.REACT_APP_SHOPIFY_DOMAIN;
+const STOREFRONT_API_TOKEN = process.env.REACT_APP_SHOPIFY_STOREFRONT_TOKEN;
+
+if (!SHOPIFY_DOMAIN) {
+  throw new Error("Missing REACT_APP_SHOPIFY_DOMAIN");
+}
+if (!STOREFRONT_API_TOKEN) {
+  throw new Error("Missing REACT_APP_SHOPIFY_STOREFRONT_TOKEN");
+}
+
 const STOREFRONT_API_URL = `https://${SHOPIFY_DOMAIN}/api/2023-10/graphql.json`;
 
 async function shopifyGraphQL(query, variables = {}) {
