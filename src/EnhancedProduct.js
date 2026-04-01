@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from "react";
+import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
@@ -36,7 +36,7 @@ function ImageTile({ imageUrl, active }) {
     <group>
       <mesh>
         {/* Wider 2D tile so images don't look squeezed */}
-        <planeGeometry args={[0.9, 0.98]} />
+        <planeGeometry args={[0.88, 0.97]} />
         {texture ? (
           <meshBasicMaterial
             map={texture}
@@ -60,52 +60,52 @@ function ProductModel({ glbUrl, active }) {
 
   const cloned = useMemo(() => scene.clone(true), [scene]);
 
-  // Center model and compute baseline so it doesn't float too high/low
-  const { object: centered, baselineY } = useMemo(() => {
+  // Center model perfectly natively on (0,0,0) and scale safely
+  const wrapper = useMemo(() => {
     const root = cloned.clone(true);
-    const box = new THREE.Box3().setFromObject(root);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
+    
+    // 1. Initial size check
+    const initialBox = new THREE.Box3().setFromObject(root);
+    const size = new THREE.Vector3();
+    initialBox.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    
+    // 2. Normalize model size (smaller footprint on the rail)
+    const targetScale = 0.92 / (maxDim || 1);
+    root.scale.setScalar(targetScale);
+    
+    // Force Three.js to apply the scale so the next calculations don't fail!
+    root.updateMatrixWorld(true);
 
-    // Move pivot to center
+    // 3. Now compute the actual geometry center after it shrunk
+    const scaledBox = new THREE.Box3().setFromObject(root);
+    const center = new THREE.Vector3();
+    scaledBox.getCenter(center);
+
+    // 4. Offset it so it spins flawlessly around 0,0,0
     root.position.sub(center);
 
-    // Recompute box after centering and compute "bottom" so we can align it near y=0
-    const box2 = new THREE.Box3().setFromObject(root);
-    const minY = box2.min.y;
+    // Encapsulate deeply into a clean group so it never wobbles
+    const group = new THREE.Group();
+    group.add(root);
 
-    // baselineY is the offset required to bring the model's bottom to y=0
-    const baselineY = -minY;
-
-    // Apply baseline once (we still animate bob on top of it)
-    root.position.y += baselineY;
-
-    return { object: root, baselineY };
+    return group;
   }, [cloned]);
 
   useEffect(() => {
-    centered.traverse((obj) => {
+    wrapper.traverse((obj) => {
       if (obj.isMesh) {
         obj.castShadow = false;
         obj.receiveShadow = false;
         if (obj.material) obj.material.side = THREE.FrontSide;
       }
     });
-  }, [centered]);
+  }, [wrapper]);
 
-  // Manual extra drop so it matches legacy tile height better
-  const DROP = 1.15;
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    const bob = active ? Math.sin(t * 1.6) * 0.03 : 0;
-    centered.position.y = baselineY - DROP + bob;
-  });
-
+  // Clean uniform passback, we removed useFrame bouncing so they don't 'go up or down'
   return (
     <primitive
-      object={centered}
-      scale={1.1}
+      object={wrapper}
       position={[0, 0, 0]}
       rotation={[0, Math.PI, 0]}
     />
@@ -116,7 +116,7 @@ function LegacyTile({ active }) {
   return (
     <group>
       <mesh>
-        <boxGeometry args={[0.6, 0.95, 0.175]} />
+        <boxGeometry args={[0.60, 0.93, 0.165]} />
         <meshStandardMaterial
           color="#e8e8e8"
           metalness={0.8}
@@ -132,37 +132,30 @@ function LegacyTile({ active }) {
   );
 }
 
-export default function EnhancedProduct({ position, active, onClick, product, index = 0 }) {
+function EnhancedProduct({ position, active, onClick, product, index = 0, railY }) {
   const meshRef = useRef();
   const { mouse } = useThree();
 
   const hasGlb = !!product?.glbUrl;
+  const baseY = typeof railY === "number" ? railY : 0.6;
 
   useFrame((state) => {
-    if (!meshRef.current) return;
+    if (!meshRef.current || !hasGlb) return;
 
-    meshRef.current.position.x = position;
-    // Slightly lower the baseline so models don't sit too high
-    meshRef.current.position.y = 0.35;
-    meshRef.current.position.z = 0;
-
-    // Spin ONLY for 3D models
-    if (hasGlb) {
-      const baseSpin = state.clock.elapsedTime * 0.3;
-      const mouseInfluence = active ? mouse.x * 0.2 : 0;
-      meshRef.current.rotation.y = baseSpin + mouseInfluence;
-    } else {
+    if (!active) {
       meshRef.current.rotation.y = 0;
+      return;
     }
 
-    const targetScale = active ? 2.0 : 1.02;
-    meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.08);
+    const baseSpin = state.clock.elapsedTime * 0.3;
+    const mouseInfluence = mouse.x * 0.2;
+    meshRef.current.rotation.y = baseSpin + mouseInfluence;
   });
 
   const hasImage = !!product?.imageUrl;
 
   return (
-    <group ref={meshRef} position={[position, 0.35, 0]} frustumCulled={true}>
+    <group ref={meshRef} position={[position, baseY, 0]} frustumCulled={true}>
       <group
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -186,3 +179,5 @@ export default function EnhancedProduct({ position, active, onClick, product, in
     </group>
   );
 }
+
+export default React.memo(EnhancedProduct);

@@ -56,6 +56,17 @@ function ProductModel({ imageUrl }) {
 const ProductDetail = ({ product, isOpen, onClose }) => {
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     // Reset size and quantity when product changes
@@ -66,14 +77,18 @@ const ProductDetail = ({ product, isOpen, onClose }) => {
     }
   }, [product]);
 
+  // mobile: shift panel higher and reduce height to leave more top space
+  const baseBottom = isMobile ? 300 : 0;
+  const panelHeight = isOpen ? (isMobile ? "50vh" : "80vh") : "0vh";
+
   return (
     <div
       style={{
         position: "fixed",
-        bottom: 0,
+        bottom: baseBottom,
         left: 0,
         right: 0,
-        height: isOpen ? "80vh" : "0vh",
+        height: panelHeight,
         background: "#fff",
         borderRadius: "20px 20px 0 0",
         boxShadow: "0 -4px 20px rgba(0,0,0,0.1)",

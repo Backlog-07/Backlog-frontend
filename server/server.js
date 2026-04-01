@@ -42,7 +42,7 @@ if (!fs.existsSync(worldImagesDir)) {
 }
 
 // File paths
-const productsFile = path.join(dataDir, "products.json");
+const dbFile = path.join(__dirname, "db.json");
 const ordersFile = path.join(dataDir, "orders.json");
 const worldImagesFile = path.join(dataDir, "worldImages.json");
 const preOrdersFile = path.join(dataDir, "preOrders.json");
@@ -56,12 +56,13 @@ let preOrders = [];
 // Load data functions
 function loadProducts() {
   try {
-    if (fs.existsSync(productsFile)) {
-      const data = fs.readFileSync(productsFile, "utf-8");
-      products = JSON.parse(data);
+    if (fs.existsSync(dbFile)) {
+      const data = fs.readFileSync(dbFile, "utf-8");
+      const db = JSON.parse(data);
+      products = Array.isArray(db.products) ? db.products : [];
     }
   } catch (err) {
-    console.error("Error loading products:", err);
+    console.error("Error loading products from db.json:", err);
     products = [];
   }
 }
@@ -762,6 +763,28 @@ app.post("/api/world-images", requireAuth, upload.single("image"), async (req, r
   } catch (err) {
     console.error("Error uploading world image:", err);
     res.status(500).send("Failed to upload world image");
+  }
+});
+
+// Compat: AdminPanel uploads world images here (field name: "file")
+app.post("/api/world-images/upload", requireAuth, upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const imageUrl = `/uploads/world/${req.file.filename}`;
+    const newImage = {
+      id: Date.now(),
+      imageUrl,
+      createdAt: new Date().toISOString(),
+    };
+
+    worldImages.push(newImage);
+    await saveWorldImages();
+
+    return res.json({ success: true, url: imageUrl, id: newImage.id, createdAt: newImage.createdAt });
+  } catch (err) {
+    console.error("Error uploading world image (compat):", err);
+    return res.status(500).json({ error: "Failed to upload world image" });
   }
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 
 const API_BASE = (process.env.REACT_APP_API_URL || "http://localhost:4000").replace(/\/$/, "");
 
@@ -9,81 +9,14 @@ function resolveImageUrl(imageUrl) {
   return `${API_BASE}${clean}`;
 }
 
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n));
-}
-
-function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
-
-export default function World({ onSelect }) {
+export default function World() {
   const [worldImages, setWorldImages] = useState([]);
   const [loadingImages, setLoadingImages] = useState(true);
-
-  // Reserve fixed UI space so carousel never sits behind header/joystick.
-  const UI_TOP = 86; // header
-
-  // Manual tuning: keep reasonable bottom reserve; don't over-shift.
-  const JOYSTICK_SAFE_MARGIN = 60;
-  const [uiBottom, setUiBottom] = useState(360);
-
-  useEffect(() => {
-    const measure = () => {
-      if (typeof document === 'undefined') return;
-      const el = document.querySelector('.joystick-wrapper');
-      if (!el) {
-        setUiBottom(360);
-        return;
-      }
-      const rect = el.getBoundingClientRect();
-      const vh = window.innerHeight || 800;
-      const reserved = Math.max(320, Math.ceil(vh - rect.top + JOYSTICK_SAFE_MARGIN));
-      setUiBottom(reserved);
-    };
-
-    measure();
-    window.addEventListener('resize', measure);
-    window.addEventListener('orientationchange', measure);
-    const t = setTimeout(measure, 60);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('orientationchange', measure);
-    };
-  }, []);
-
-  // Responsive stage height based on available viewport space.
-  const [viewportH, setViewportH] = useState(
-    typeof window !== "undefined" ? window.innerHeight : 800
-  );
-
-  useEffect(() => {
-    const onResize = () => setViewportH(window.innerHeight || 800);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  const stageHeightPx = useMemo(() => {
-    const available = Math.max(240, (viewportH || 800) - UI_TOP - uiBottom);
-    return Math.min(620, available);
-  }, [viewportH, uiBottom]);
-
-  const stageHeightCss = `${stageHeightPx}px`;
-
-  // A continuous floating index; snapping targets integers.
-  const indexRef = useRef(0);
-  const targetIndexRef = useRef(0);
-  const velocityRef = useRef(0);
-  const rafRef = useRef(0);
-
-  const draggingRef = useRef(false);
-  const lastXRef = useRef(0);
-  const lastTRef = useRef(0);
-
-  const lastRafTimeRef = useRef(0);
-
-  const count = worldImages.length;
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [prevIdx, setPrevIdx] = useState(null);
+  const [direction, setDirection] = useState(0);
+  const [animKey, setAnimKey] = useState(0);
+  const lockRef = useRef(false);
 
   const images = useMemo(() => {
     return (Array.isArray(worldImages) ? worldImages : []).map((img) => ({
@@ -92,417 +25,292 @@ export default function World({ onSelect }) {
     }));
   }, [worldImages]);
 
-  // Force lightweight re-render so transforms update smoothly (refs alone don't re-render)
-  const [, forceRerender] = useState(0);
-
-  const stageRef = useRef(null);
-  const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
+  const count = images.length;
 
   useEffect(() => {
-    const el = stageRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-
-    const ro = new ResizeObserver((entries) => {
-      const cr = entries?.[0]?.contentRect;
-      if (!cr) return;
-      setStageSize({ w: cr.width || 0, h: cr.height || 0 });
-    });
-
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const metrics = useMemo(() => {
-    const w = stageSize.w || window.innerWidth;
-    const h = stageSize.h || Math.min(window.innerHeight * 0.58, 620);
-
-    const cardH = clamp(h * 0.56, 220, 340);
-    const cardW = clamp(cardH * 0.62, 150, 240);
-
-    // Spacing based on viewport width so the strip reaches edges on all screens
-    const spacing = clamp(w * 0.18, cardW * 0.72, cardW * 0.95);
-
-    const lift = clamp(h * 0.018, 8, 14);
-    const centerLift = -clamp(h * 0.010, 4, 8);
-
-    return { stageW: w, stageH: h, cardW, cardH, spacing, lift, centerLift };
-  }, [stageSize.w, stageSize.h]);
-
-  useEffect(() => {
-    const loadWorldImages = async () => {
+    const load = async () => {
       try {
         setLoadingImages(true);
-        try {
-          window.__ensureBootLoader && window.__ensureBootLoader();
-        } catch {}
-
         const res = await fetch(`${API_BASE}/api/world-images`);
-        if (!res.ok) throw new Error(`Failed to fetch world images: ${res.status}`);
+        if (!res.ok) throw new Error(`${res.status}`);
         const data = await res.json();
         const arr = Array.isArray(data) ? data : [];
-
         arr.sort((a, b) => {
           const at = a?.createdAt ? Date.parse(a.createdAt) : 0;
           const bt = b?.createdAt ? Date.parse(b.createdAt) : 0;
           return at - bt;
         });
-
         setWorldImages(arr);
-        indexRef.current = 0;
-        targetIndexRef.current = 0;
-        velocityRef.current = 0;
       } catch (e) {
         console.error("Failed to load world images", e);
         setWorldImages([]);
       } finally {
         setLoadingImages(false);
-        try {
-          window.__hideBootLoader && window.__hideBootLoader();
-        } catch {}
       }
     };
-
-    loadWorldImages();
+    load();
   }, []);
 
-  // Helper: wrap an index into [0, count)
-  const wrapIndex = useCallback((i, n) => ((i % n) + n) % n, []);
+  const navigate = useCallback((dir) => {
+    if (!count || lockRef.current) return;
+    lockRef.current = true;
+    setDirection(dir);
+    setPrevIdx(currentIdx);
+    setCurrentIdx((prev) => {
+      if (dir === 1) return (prev + 1) % count;
+      return (prev - 1 + count) % count;
+    });
+    setAnimKey((k) => k + 1);
+    setTimeout(() => { lockRef.current = false; }, 360);
+  }, [count, currentIdx]);
 
-  // Helper: minimal signed circular distance from 'from' to 'to'
-  const circularDelta = useCallback((from, to, n) => {
-    let d = to - from;
-    if (n <= 0) return d;
-    // bring into [-n/2, n/2]
-    d = ((d + n / 2) % n) - n / 2;
-    return d;
-  }, []);
+  const goNext = useCallback(() => navigate(1), [navigate]);
+  const goPrev = useCallback(() => navigate(-1), [navigate]);
 
-  const snapToNearest = useCallback(() => {
-    if (!count) return;
+  const jumpTo = useCallback((idx) => {
+    if (idx === currentIdx || lockRef.current) return;
+    lockRef.current = true;
+    setDirection(idx > currentIdx ? 1 : -1);
+    setPrevIdx(currentIdx);
+    setCurrentIdx(idx);
+    setAnimKey((k) => k + 1);
+    setTimeout(() => { lockRef.current = false; }, 360);
+  }, [currentIdx]);
 
-    // Choose nearest integer center in circular space
-    const current = indexRef.current;
-    const currentWrapped = wrapIndex(current, count);
-    const nearestIntWrapped = Math.round(currentWrapped);
-
-    // Convert the wrapped nearest int back into the continuous space near current
-    const d = circularDelta(currentWrapped, nearestIntWrapped, count);
-    targetIndexRef.current = current + d;
-
-    if (Math.abs(targetIndexRef.current - indexRef.current) < 0.002) {
-      indexRef.current = targetIndexRef.current;
-      velocityRef.current = 0;
-    }
-  }, [count, wrapIndex, circularDelta]);
-
-  const animate = useCallback(() => {
-    cancelAnimationFrame(rafRef.current);
-
-    const tick = (t) => {
-      const lastT = lastRafTimeRef.current || t;
-      lastRafTimeRef.current = t;
-      const dtMs = Math.max(8, Math.min(34, t - lastT));
-      const dt = dtMs / 16.67; // normalize to ~60fps
-
-      let didMove = false;
-
-      if (!draggingRef.current) {
-        if (Math.abs(velocityRef.current) > 0) {
-          indexRef.current += velocityRef.current * dt;
-          didMove = true;
-        }
-
-        // Damping
-        velocityRef.current *= Math.pow(0.82, dt);
-        if (Math.abs(velocityRef.current) < 0.00014) velocityRef.current = 0;
-
-        // Spring toward target in continuous space
-        const diff = targetIndexRef.current - indexRef.current;
-        if (Math.abs(diff) > 0.00005) {
-          indexRef.current += diff * (1 - Math.pow(1 - 0.22, dt));
-          didMove = true;
-        } else {
-          indexRef.current = targetIndexRef.current;
-        }
-      } else {
-        didMove = true;
-      }
-
-      // IMPORTANT: do NOT wrap indexRef/targetIndexRef every frame.
-      // Wrapping introduces discontinuities and shifts the perceived center.
-      // We only wrap for rendering calculations.
-
-      // Only re-render when necessary (prevents constant 60fps state churn)
-      if (didMove) {
-        forceRerender((v) => (v + 1) % 1000000);
-      }
-
-      rafRef.current = requestAnimationFrame(tick);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-  }, [forceRerender]);
-
-  useEffect(() => {
-    animate();
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [animate]);
-
-  const onWheel = useCallback(
-    (e) => {
-      if (!count) return;
-      const d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) || 0;
-
-      // Slightly lower gain to reduce jitter on high-res trackpads
-      const deltaIndex = d * 0.0022;
-      velocityRef.current += deltaIndex;
-      targetIndexRef.current = indexRef.current;
-
-      window.clearTimeout(onWheel._t);
-      onWheel._t = window.setTimeout(() => {
-        snapToNearest();
-      }, 55);
-    },
-    [count, snapToNearest]
-  );
-
-  const onPointerDown = useCallback((e) => {
-    if (!count) return;
-    draggingRef.current = true;
-    lastXRef.current = e.clientX;
-    lastTRef.current = performance.now();
-    velocityRef.current = 0;
-    targetIndexRef.current = Math.round(indexRef.current); // start from a locked center
-
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
-  }, [count]);
-
-  const onPointerMove = useCallback((e) => {
-    if (!draggingRef.current || !count) return;
-
-    const now = performance.now();
-    const dx = e.clientX - lastXRef.current;
-    const dt = Math.max(8, now - lastTRef.current);
-
-    lastXRef.current = e.clientX;
-    lastTRef.current = now;
-
-    // Slightly reduced drag gain for smoother feel
-    const deltaIndex = -dx * 0.0088;
-    indexRef.current += deltaIndex;
-    velocityRef.current = (deltaIndex / dt) * 16;
-    targetIndexRef.current = indexRef.current;
-
-    // Immediate paint while dragging
-    forceRerender((v) => (v + 1) % 1000000);
-  }, [count]);
-
-  const onPointerUp = useCallback(() => {
-    if (!count) return;
-    draggingRef.current = false;
-    snapToNearest();
-  }, [count, snapToNearest]);
-
-  // Smooth discrete step (for joystick/keyboard)
-  const stepBy = useCallback((dir) => {
-    if (!count) return;
-    draggingRef.current = false;
-    velocityRef.current = 0;
-
-    // Step from the currently centered (nearest) item
-    const currentWrapped = wrapIndex(indexRef.current, count);
-    const base = Math.round(currentWrapped);
-    const nextWrapped = wrapIndex(base + dir, count);
-
-    // Convert to continuous target near current
-    const d = circularDelta(currentWrapped, nextWrapped, count);
-    targetIndexRef.current = indexRef.current + d;
-  }, [count, wrapIndex, circularDelta]);
-
-  // Keyboard support
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        stepBy(-1);
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        stepBy(1);
-      }
+      if (e.key === "ArrowRight") { e.preventDefault(); goNext(); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); goPrev(); }
     };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [goNext, goPrev]);
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [stepBy]);
-
-  // Joystick support (dispatch a CustomEvent('worldCarouselStep', { detail: { dir: -1|1 } }))
   useEffect(() => {
     const onStep = (e) => {
       const dir = Number(e?.detail?.dir);
-      if (dir === 1 || dir === -1) stepBy(dir);
+      if (dir === 1) goNext();
+      else if (dir === -1) goPrev();
     };
-
-    window.addEventListener('worldCarouselStep', onStep);
-    return () => window.removeEventListener('worldCarouselStep', onStep);
-  }, [stepBy]);
-
-  const currentIndex = indexRef.current;
-
-  const [joyPillEnter, setJoyPillEnter] = useState(false);
+    window.addEventListener("worldCarouselStep", onStep);
+    return () => window.removeEventListener("worldCarouselStep", onStep);
+  }, [goNext, goPrev]);
 
   useEffect(() => {
-    // trigger the pill morph-in only when World page mounts
-    const t = setTimeout(() => setJoyPillEnter(true), 30);
-    return () => clearTimeout(t);
+    const onCenter = () => { };
+    window.addEventListener("worldCenterClick", onCenter);
+    return () => window.removeEventListener("worldCenterClick", onCenter);
   }, []);
 
-  if (loadingImages) return null;
+  const currentImage = images[currentIdx];
+  const previousImage = prevIdx !== null ? images[prevIdx] : null;
 
+  const leftStrip = [];
+  const rightStrip = [];
+  if (count > 1) {
+    for (let i = 1; i <= Math.min(12, count - 1); i++) {
+      const idx = (currentIdx - i + count) % count;
+      leftStrip.unshift(images[idx]);
+    }
+    for (let i = 1; i <= Math.min(12, count - 1); i++) {
+      const idx = (currentIdx + i) % count;
+      rightStrip.push(images[idx]);
+    }
+  }
+
+  if (loadingImages) return null;
   if (!count) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#fff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#666",
-          fontWeight: 700,
-        }}
-      >
-        No images in the gallery yet
+      <div style={{ minHeight: "100vh", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", color: "#888", fontWeight: 600, fontSize: 14 }}>
+        No images in World yet
       </div>
     );
   }
 
-  // Render a window of items around the center to keep DOM light.
-  const WINDOW = Math.min(9, count);
-  const half = Math.floor(WINDOW / 2);
-
-  const items = [];
-  for (let k = -half; k <= half; k++) {
-    const base = Math.round(currentIndex);
-    const idx = wrapIndex(base + k, count);
-    const rel = (base + k) - currentIndex; // signed distance in index units
-    items.push({ idx, rel });
-  }
+  const hasAnim = direction !== 0;
+  const goingNext = direction === 1;
 
   return (
-    <section
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "#fff",
-        overflow: "hidden",
-        paddingTop: UI_TOP,
-        paddingBottom: uiBottom,
-        boxSizing: "border-box",
-      }}
-    >
-      {/* Removed vignette/overlay */}
+    <section className="wld">
 
+      {/* Left filmstrip */}
       <div
-        onWheel={onWheel}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "grid",
-          placeItems: "center",
-          touchAction: "pan-y",
-          cursor: draggingRef.current ? "grabbing" : "grab",
-          userSelect: "none",
-          /* Shift carousel slightly upward to avoid joystick overlap */
-          paddingTop: 0,
-        }}
+        key={`ls-${animKey}`}
+        className={`wld-strip wld-strip-l ${hasAnim ? "wld-strip-anim" : ""}`}
+        style={hasAnim ? { "--dx": goingNext ? "72px" : "-72px" } : undefined}
       >
+        {leftStrip.map((img, i) => (
+          <div key={`l-${img.id || i}`} onClick={() => jumpTo(images.indexOf(img))} className="wld-th">
+            {img._src && <img src={img._src} alt="" draggable={false} />}
+          </div>
+        ))}
+      </div>
+
+      {/* Center */}
+      <div className="wld-center">
+        {previousImage && hasAnim && (
+          <div
+            key={`x-${animKey}`}
+            className={`wld-hero wld-exit ${goingNext ? "wld-exit-l" : "wld-exit-r"}`}
+          >
+            <img src={previousImage._src || ""} alt="" draggable={false} />
+          </div>
+        )}
         <div
-          ref={stageRef}
-          style={{
-            position: "relative",
-            width: "100vw",
-            height: stageHeightCss,
-            transform: "translateY(-38px)",
-          }}
+          key={`e-${animKey}`}
+          className={`wld-hero ${hasAnim ? "wld-enter" : "wld-init"}`}
         >
-          {items.map(({ idx, rel }) => {
-            const img = images[idx];
-            const d = Math.abs(rel);
-
-            const t = clamp(1 - d / 1.8, 0, 1);
-            const eased = t * t * (3 - 2 * t);
-
-            const scale = lerp(0.66, 1.50, eased);
-            const opacity = lerp(0.34, 1.0, eased);
-            const dim = lerp(0.78, 1.0, eased);
-
-            // Dynamic spacing + lift based on stage size
-            const x = rel * metrics.spacing;
-            const y = lerp(metrics.lift, metrics.centerLift, eased);
-
-            const z = Math.round(eased * 1000);
-
-            return (
-              <figure
-                key={img.id || idx}
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "50%",
-                  transform: `translate3d(calc(-50% + ${x}px), calc(-50% + ${y}px), 0px) scale(${scale})`,
-                  transformOrigin: "center center",
-                  width: `${metrics.cardW}px`,
-                  height: `${metrics.cardH}px`,
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  boxShadow:
-                    eased > 0.9
-                      ? "0 22px 60px rgba(0,0,0,0.26), 0 8px 20px rgba(0,0,0,0.16)"
-                      : "0 12px 30px rgba(0,0,0,0.14)",
-                  opacity,
-                  filter: `brightness(${dim})`,
-                  transition: draggingRef.current ? "none" : "filter 220ms ease-out, box-shadow 220ms ease-out",
-                  zIndex: z,
-                  background: "#f0f0f0",
-                  margin: 0,
-                  pointerEvents: eased > 0.92 ? "auto" : "none",
-                }}
-                onClick={() => {
-                  if (onSelect) onSelect(img);
-                }}
-              >
-                {img?._src ? (
-                  <img
-                    src={img._src}
-                    alt=""
-                    draggable={false}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                      transform: "scale(1.02)",
-                    }}
-                  />
-                ) : null}
-              </figure>
-            );
-          })}
+          <img src={currentImage?._src || ""} alt="" draggable={false} />
         </div>
       </div>
 
-      {/* Joystick pill UI (World only) */}
-      <div className={`joy-pill ${joyPillEnter ? 'enter' : ''}`} aria-label="World joystick">
-        <button className="joy-pill-btn joy-pill-left" aria-label="Previous" />
-        <button className="joy-pill-btn joy-pill-center" aria-label="Close" />
-        <button className="joy-pill-btn joy-pill-right" aria-label="Next" />
+      {/* Right filmstrip */}
+      <div
+        key={`rs-${animKey}`}
+        className={`wld-strip wld-strip-r ${hasAnim ? "wld-strip-anim" : ""}`}
+        style={hasAnim ? { "--dx": goingNext ? "-72px" : "72px" } : undefined}
+      >
+        {rightStrip.map((img, i) => (
+          <div key={`r-${img.id || i}`} onClick={() => jumpTo(images.indexOf(img))} className="wld-th">
+            {img._src && <img src={img._src} alt="" draggable={false} />}
+          </div>
+        ))}
       </div>
+
+      {/* Nav pill */}
+      <div className="wld-pill">
+        <button onClick={goPrev} className="wld-btn">◀◀</button>
+        <button className="wld-btn wld-btn-x">✕</button>
+        <button onClick={goNext} className="wld-btn">▶▶</button>
+      </div>
+
+      <style>{`
+        .wld {
+          position: fixed; inset: 0;
+          background: #f0f0f0;
+          overflow: hidden;
+          display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ═══ STRIPS ═══ */
+        .wld-strip {
+          position: absolute; top: 50%; transform: translateY(-50%);
+          display: flex; gap: 3px;
+          opacity: 0.5;
+          overflow: visible;
+        }
+        .wld-strip-l { left: 0; padding-left: 3px; }
+        .wld-strip-r { right: 0; padding-right: 3px; }
+
+        .wld-strip-anim {
+          animation: sShift 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @keyframes sShift {
+          from { transform: translateY(-50%) translateX(var(--dx, 0)); }
+          to   { transform: translateY(-50%) translateX(0); }
+        }
+
+        .wld-th {
+          width: 68px; height: 92px;
+          border-radius: 8px; overflow: hidden;
+          flex-shrink: 0; cursor: pointer; background: #ddd;
+          transition: transform 0.18s ease;
+        }
+        .wld-th:hover { transform: scale(1.06); }
+        .wld-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+        /* ═══ CENTER ═══ */
+        .wld-center {
+          position: relative; z-index: 2;
+          width: min(420px, 38vw);
+          height: min(580px, 75vh);
+        }
+
+        .wld-hero {
+          position: absolute; inset: 0;
+          border-radius: 16px; overflow: hidden;
+          box-shadow: 0 24px 64px rgba(0,0,0,0.16);
+          will-change: opacity, transform;
+        }
+        .wld-hero img {
+          width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+
+        /* Page load entrance */
+        .wld-init {
+          animation: wInit 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes wInit {
+          from { opacity: 0; transform: scale(0.92); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+
+        /* Incoming: subtle fade-in + tiny scale settle */
+        .wld-enter {
+          animation: wEnter 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          z-index: 2;
+        }
+        @keyframes wEnter {
+          0%   { opacity: 0; transform: scale(1.02); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Exiting: subtle shrink + slide toward strip + fade */
+        .wld-exit {
+          z-index: 3;
+          pointer-events: none;
+        }
+        .wld-exit-l {
+          animation: wExitL 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          transform-origin: left center;
+        }
+        .wld-exit-r {
+          animation: wExitR 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          transform-origin: right center;
+        }
+
+        /* Gone next → exit shrinks left toward left strip */
+        @keyframes wExitL {
+          0%   { opacity: 1; transform: scale(1) translateX(0); }
+          100% { opacity: 0; transform: scale(0.7) translateX(-40%); }
+        }
+        /* Gone prev → exit shrinks right toward right strip */
+        @keyframes wExitR {
+          0%   { opacity: 1; transform: scale(1) translateX(0); }
+          100% { opacity: 0; transform: scale(0.7) translateX(40%); }
+        }
+
+        /* ═══ PILL ═══ */
+        .wld-pill {
+          position: absolute; bottom: 28px; left: 50%;
+          transform: translateX(-50%);
+          display: flex; align-items: center;
+          background: rgba(200,200,200,0.5);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border-radius: 999px; padding: 4px 5px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+          animation: wPill 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+          z-index: 10;
+        }
+        .wld-btn {
+          background: none; border: none; cursor: pointer;
+          font-size: 13px; font-weight: 700; color: #555;
+          padding: 6px 14px;
+          transition: color 0.15s ease, opacity 0.12s ease;
+        }
+        .wld-btn:hover { color: #222; }
+        .wld-btn:active { opacity: 0.4; }
+        .wld-btn-x {
+          background: rgba(80,80,80,0.1);
+          font-size: 12px; color: #444;
+          padding: 5px 12px; border-radius: 999px;
+        }
+        @keyframes wPill {
+          from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `}</style>
     </section>
   );
 }

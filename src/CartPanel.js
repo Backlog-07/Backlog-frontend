@@ -1,67 +1,59 @@
+import { useState } from "react";
 import cartImage from "./cart.jpeg";
+import { updateCartLine, removeCartLine } from "./shopifyApi";
 
-const API_BASE = (process.env.REACT_APP_API_URL || "http://localhost:4000").replace(/\/$/, "");
+// Shopify cart object passed via App.js
+export default function CartPanel({ open, onClose, cart, setCart }) {
+  const [isLoading, setIsLoading] = useState(false);
 
-export default function CartPanel({ open, onClose, cart, setCart, setProducts }) {
-  const isCheckingOut = false;
+  // Safely grab the shopify edges
+  const edges = cart?.lines?.edges || [];
 
-  const persistCart = (nextCart) => {
-    try {
-      localStorage.setItem("cart", JSON.stringify(nextCart || []));
-    } catch {}
-  };
-
-  const removeItem = (id, size, color) => {
-    setCart((prev) => {
-      const next = prev.filter((item) => !(item.id === id && item.size === size && item.color === color));
-      persistCart(next);
-      return next;
-    });
-  };
-
-  const updateQty = (id, size, color, newQty) => {
+  const updateQty = async (lineId, newQty) => {
+    if (!cart?.id) return;
     if (newQty <= 0) {
-      removeItem(id, size, color);
+      return removeItem(lineId);
+    }
+    setIsLoading(true);
+    try {
+      const updatedCart = await updateCartLine(cart.id, lineId, newQty);
+      setCart(updatedCart);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update quantity");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const removeItem = async (lineId) => {
+    if (!cart?.id) return;
+    setIsLoading(true);
+    try {
+      const updatedCart = await removeCartLine(cart.id, lineId);
+      setCart(updatedCart);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to remove item");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCheckout = () => {
+    if (!cart?.checkoutUrl) {
+      alert("No checkout url available");
       return;
     }
-    setCart((prev) => {
-      const next = prev.map((item) =>
-        item.id === id && item.size === size && item.color === color
-          ? { ...item, qty: Math.min(99, newQty) }
-          : item
-      );
-      persistCart(next);
-      return next;
-    });
+    window.location.href = cart.checkoutUrl;
   };
 
-  const totalPrice = cart.reduce((sum, item) => {
-    const priceNum = parseFloat(item.price?.replace(/[^\d.]/g, "") || "0");
-    return sum + priceNum * item.qty;
-  }, 0);
-
-  const handleCheckout = async () => {
-    if (cart.length === 0) {
-      alert("Your cart is empty!");
-      return;
-    }
-
-    // Ensure cart is stored before navigation
-    persistCart(cart);
-
-    // Navigate to checkout page instead of direct API call
-    window.location.href = '/checkout';
+  const formatPrice = (amount) => {
+    const num = parseFloat(amount || "0");
+    return isNaN(num) ? "0.00" : num.toFixed(2);
   };
 
-  const handleClearCart = () => {
-    if (window.confirm("Clear all items from cart?")) {
-      setCart(() => {
-        const next = [];
-        persistCart(next);
-        return next;
-      });
-    }
-  };
+  const totalAmount = cart?.cost?.subtotalAmount?.amount || "0";
 
   return (
     <>
@@ -70,7 +62,21 @@ export default function CartPanel({ open, onClose, cart, setCart, setProducts })
 
       {/* Cart Panel */}
       <div className={`cart-panel ${open ? "open" : ""}`}>
-        <div className="cart-panel-inner">
+        <div className="cart-panel-inner" style={{ position: "relative" }}>
+          
+          {/* Loading Overlay */}
+          {isLoading && (
+            <div style={{
+              position: "absolute", inset: 0, zIndex: 10,
+              background: "rgba(255,255,255,0.7)", display: "flex",
+              alignItems: "center", justifyContent: "center"
+            }}>
+              <span style={{ fontWeight: "bold", background: "#000", color: "#fff", padding: "8px 16px", borderRadius: 20 }}>
+                Updating...
+              </span>
+            </div>
+          )}
+
           {/* Header */}
           <div className="cart-panel-header">
             <div className="cart-header-content">
@@ -84,7 +90,7 @@ export default function CartPanel({ open, onClose, cart, setCart, setProducts })
 
           {/* Content */}
           <div className="cart-panel-body">
-            {cart.length === 0 ? (
+            {edges.length === 0 ? (
               <div className="cart-empty-state">
                 <div style={{ fontSize: 32, marginBottom: 8 }}>🛍️</div>
                 <p>Your basket is empty</p>
@@ -94,21 +100,23 @@ export default function CartPanel({ open, onClose, cart, setCart, setProducts })
               </div>
             ) : (
               <div className="cart-items-list">
-                {cart.map((item, idx) => {
-                  const imgSrc = item.imageUrl
-                    ? (item.imageUrl.startsWith("http")
-                        ? item.imageUrl
-                        : `${API_BASE}${item.imageUrl}`)
-                    : null;
+                {edges.map(({ node }) => {
+                  const product = node.merchandise?.product;
+                  const variantTitle = node.merchandise?.title;
+                  const price = node.merchandise?.price?.amount;
+                  const imgSrc = product?.images?.edges?.[0]?.node?.url || null;
+                  
+                  // Shopify variant title is often "Default Title" if no dimensions selected
+                  const showVariant = variantTitle && variantTitle !== "Default Title";
 
                   return (
-                    <div key={idx} className="cart-panel-item">
+                    <div key={node.id} className="cart-panel-item">
                       {/* Item Image */}
                       <div className="cart-panel-item-3d">
                         {imgSrc ? (
                           <img
                             src={imgSrc}
-                            alt={item.name}
+                            alt={product?.title || "Product"}
                             style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 10 }}
                             onError={(e) => {
                               e.currentTarget.style.display = "none";
@@ -117,17 +125,9 @@ export default function CartPanel({ open, onClose, cart, setCart, setProducts })
                         ) : (
                           <div
                             style={{
-                              width: "100%",
-                              height: "100%",
-                              borderRadius: 10,
-                              background: "#f0f0f0",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#999",
-                              fontSize: 12,
-                              fontWeight: 700,
-                              letterSpacing: 0.5,
+                              width: "100%", height: "100%", borderRadius: 10, background: "#f0f0f0",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: "#999", fontSize: 12, fontWeight: 700, letterSpacing: 0.5,
                               textTransform: "uppercase",
                             }}
                           >
@@ -138,40 +138,26 @@ export default function CartPanel({ open, onClose, cart, setCart, setProducts })
 
                       {/* Item Info */}
                       <div className="cart-panel-item-info">
-                        <div className="cart-panel-item-name">{item.name}</div>
+                        <div className="cart-panel-item-name">{product?.title || "Item"}</div>
                         <div className="cart-panel-item-meta">
-                          {item.size && <span>{item.size}</span>}
-                          {item.size && item.color && <span> • </span>}
-                          {item.color && (
-                            <span>
-                              <div
-                                style={{
-                                  width: 12,
-                                  height: 12,
-                                  borderRadius: "50%",
-                                  backgroundColor: item.color,
-                                  border: "1px solid #ddd",
-                                  display: "inline-block",
-                                  marginLeft: 4,
-                                }}
-                              />
-                            </span>
-                          )}
+                          {showVariant && <span>{variantTitle}</span>}
                         </div>
-                        <div className="cart-panel-item-price">{item.price}</div>
+                        <div className="cart-panel-item-price">₹{formatPrice(price)}</div>
 
                         {/* Quantity Controls */}
                         <div className="cart-panel-item-qty">
                           <button
                             className="qty-mini-btn"
-                            onClick={() => updateQty(item.id, item.size, item.color, item.qty - 1)}
+                            onClick={() => updateQty(node.id, node.quantity - 1)}
+                            disabled={isLoading}
                           >
                             −
                           </button>
-                          <span>{item.qty}</span>
+                          <span>{node.quantity}</span>
                           <button
                             className="qty-mini-btn"
-                            onClick={() => updateQty(item.id, item.size, item.color, item.qty + 1)}
+                            onClick={() => updateQty(node.id, node.quantity + 1)}
+                            disabled={isLoading}
                           >
                             +
                           </button>
@@ -181,8 +167,9 @@ export default function CartPanel({ open, onClose, cart, setCart, setProducts })
                       {/* Remove Button */}
                       <button
                         className="remove-item-btn"
-                        onClick={() => removeItem(item.id, item.size, item.color)}
+                        onClick={() => removeItem(node.id)}
                         title="Remove item"
+                        disabled={isLoading}
                       >
                         ✕
                       </button>
@@ -194,26 +181,20 @@ export default function CartPanel({ open, onClose, cart, setCart, setProducts })
           </div>
 
           {/* Footer */}
-          {cart.length > 0 && (
+          {edges.length > 0 && (
             <div className="cart-panel-footer">
               <div className="cart-panel-total">
                 <span>TOTAL</span>
-                <span>₹{totalPrice.toFixed(2)}</span>
+                <span>₹{formatPrice(totalAmount)}</span>
               </div>
               <div className="cart-panel-actions">
                 <button
                   className="cart-panel-checkout"
                   onClick={handleCheckout}
-                  disabled={isCheckingOut}
+                  disabled={isLoading}
+                  style={{ width: "100%" }}
                 >
-                  {isCheckingOut ? "Processing..." : "CHECKOUT"}
-                </button>
-                <button
-                  className="cart-panel-clear"
-                  onClick={handleClearCart}
-                  disabled={isCheckingOut}
-                >
-                  CLEAR
+                  CHECKOUT WITH SHOPIFY
                 </button>
               </div>
             </div>

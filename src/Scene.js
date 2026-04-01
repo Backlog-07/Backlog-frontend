@@ -4,20 +4,63 @@ import EnhancedProduct from "./EnhancedProduct";
 import Particles from "./Particles";
 import { Suspense } from "react";
 import * as THREE from "three";
+import React from "react";
+import {
+  getCarouselItemWidth,
+  getCarouselItemScale,
+  CAROUSEL_LATERAL_COMPRESS,
+  CAROUSEL_CAM_Z,
+  CAROUSEL_FOV,
+} from "./carouselLayout";
+
+/** World Y for product origins (rail) */
+const CAROUSEL_RAIL_Y = 1.2;
+/**
+ * Camera look-at Y slightly below the rail so the row reads centered in the band
+ * between the header and bottom controls (not stuck low in the full viewport).
+ */
+const CAROUSEL_LOOK_AT_Y = 1.0;
 
 /* Camera Controller */
-function CameraController() {
+function CameraController({ isMobile }) {
   const { camera, mouse } = useThree();
 
   useFrame(() => {
-    camera.position.x = THREE.MathUtils.lerp(camera.position.x, mouse.x * 0.5, 0.03);
+    // Minimal parallax so the row stays read as one straight line
+    camera.position.x = THREE.MathUtils.lerp(camera.position.x, mouse.x * 0.12, 0.03);
+
+    const targetY = isMobile ? 0.95 : 1.05;
     camera.position.y = THREE.MathUtils.lerp(
       camera.position.y,
-      1.6 + mouse.y * 0.3,
+      targetY + mouse.y * 0.05,
       0.03
     );
-    camera.lookAt(0, 0, 0);
+
+    camera.lookAt(0, CAROUSEL_LOOK_AT_Y, 0);
   });
+
+  return null;
+}
+
+/* Camera Manager (Snaps camera on state change) */
+function CameraManager({ isPreview, previewCamera, isMobile }) {
+  const { camera } = useThree();
+
+  React.useEffect(() => {
+    if (isPreview) {
+      const pos = previewCamera ? previewCamera.position : [0, 0.8, 4.2];
+      const fov = previewCamera ? previewCamera.fov : 50;
+      camera.position.set(pos[0], pos[1], pos[2]);
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    } else {
+      const y = isMobile ? 0.95 : 1.05;
+      const z = isMobile ? CAROUSEL_CAM_Z * 1.05 : CAROUSEL_CAM_Z;
+      camera.position.set(0, y, z);
+      camera.fov = CAROUSEL_FOV;
+      camera.updateProjectionMatrix();
+    }
+  }, [isPreview, previewCamera, camera, isMobile]);
 
   return null;
 }
@@ -26,15 +69,6 @@ function CameraController() {
 function wrap(value, range) {
   const half = range / 2;
   return ((((value + half) % range) + range) % range) - half;
-}
-
-// Base spacing between items in world units.
-// Computed dynamically from viewport so the centered item snaps perfectly on any screen.
-function getDynamicItemWidth() {
-  if (typeof window === 'undefined') return 1.75;
-  const w = window.innerWidth || 1024;
-  // Slightly tighter on small screens, a bit wider on large screens.
-  return THREE.MathUtils.clamp(1.55 + (w / 1400) * 0.25, 1.55, 1.85);
 }
 
 export default function Scene({ 
@@ -47,9 +81,19 @@ export default function Scene({
   previewCamera
 }) {
   const count = products.length;
+  const [isMobile, setIsMobile] = React.useState(false);
 
-  // Dynamic spacing so snap-to-center is consistent across screens
-  const itemWidth = getDynamicItemWidth();
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const itemWidth = getCarouselItemWidth();
   const totalWidth = count * itemWidth;
 
   if (count === 0) {
@@ -98,7 +142,7 @@ export default function Scene({
       inset: isPreview ? "auto" : 0,
       background: "transparent",   // ✅ REQUIRED
     }}
-    dpr={Math.min(window.devicePixelRatio, 1.5)}
+    dpr={isMobile ? 1 : Math.min(window.devicePixelRatio, 1.5)}
     onCreated={({ gl }) => {
       // Better perceived brightness + correct output colors
       gl.outputColorSpace = THREE.SRGBColorSpace;
@@ -114,18 +158,24 @@ export default function Scene({
           </Html>
         }
       >
+        <CameraManager isPreview={isPreview} previewCamera={previewCamera} isMobile={isMobile} />
+
         {/* Only show white background on main page, not in preview */}
       
-        {!isPreview && <CameraController />}
+        {!isPreview && <CameraController isMobile={isMobile} />}
 
         {/* Interactive rotate for preview modal */}
         {isPreview && interactive && (
           <OrbitControls
-            enableZoom={true}
+            enableZoom={false}
             enablePan={false}
+            enableRotate={false}
+            autoRotate={true}
+            autoRotateSpeed={2.5}
             rotateSpeed={0.8}
             dampingFactor={0.08}
             enableDamping
+            target={[0, CAROUSEL_RAIL_Y, 0]}
           />
         )}
 
@@ -149,36 +199,38 @@ export default function Scene({
         {isPreview && <Environment preset="studio" blur={0.2} />}
 
         {/* Particles ONLY for main scene */}
-        {!isPreview && <Particles />}
+        {!isPreview && !isMobile && <Particles />}
 
         {/* ♾️ Infinite carousel */}
         {products.map((product, i) => {
-          // For preview mode with forceCentered, always show at center (x = 0)
-          const x = forceCentered && isPreview ? 0 : wrap(i * itemWidth - offset, totalWidth);
-          
-          const distance = Math.abs(x);
-          // Slightly larger center emphasis
-          const scale = distance < 0.5 
-            ? 1.08 
-            : Math.max(0.42, 1 - distance * 0.15);
+          const rawX =
+            forceCentered && isPreview ? 0 : wrap(i * itemWidth - offset, totalWidth);
+          const dRaw = Math.abs(rawX);
 
-          const shouldRender = forceCentered || !isPreview || Math.abs(distance) < 5;
+          // On mobile, show only the centered product; neighbors are hidden.
+          if (isMobile && dRaw > itemWidth * 0.4) {
+            return null;
+          }
 
-          if (!shouldRender) return null;
+          const scale = getCarouselItemScale(dRaw, itemWidth);
+          // Mobile-specific size boost (25%) for better focus on a single product.
+          const mobileScale = isMobile ? scale * 1.25 : scale;
+          const compress = 1 - CAROUSEL_LATERAL_COMPRESS * (1 - scale);
+          const x = rawX * compress;
 
+          const railY = isMobile ? CAROUSEL_RAIL_Y + 0.18 : CAROUSEL_RAIL_Y + 0.2;
           return (
-            <group
-              key={product.id || i}
-              position={[x, 0, 0]}
-              scale={[scale, scale, scale]}
-            >
-              <EnhancedProduct
-                product={product}
-                position={0}
-                active={distance < itemWidth / 2}
-                index={i}
-                onClick={() => !isPreview && onSelect && onSelect(product)}
-              />
+            <group key={product.id || i} position={[x, railY, 0]}>
+              <group scale={[mobileScale, mobileScale, mobileScale]}>
+                <EnhancedProduct
+                  product={product}
+                  position={0}
+                  active={dRaw < itemWidth / 2}
+                  index={i}
+                  railY={0}
+                  onClick={() => !isPreview && onSelect && onSelect(product)}
+                />
+              </group>
             </group>
           );
         })}

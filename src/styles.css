@@ -9,6 +9,11 @@
   --transition-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+@keyframes sizeDropIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .logo {
   font-weight: 800;
   letter-spacing: 2px;
@@ -24,7 +29,7 @@
 
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  background: linear-gradient(135deg, var(--primary-bg) 0%, #e0e0e0 100%);
+  background: #ffffff;
   color: var(--text-primary);
   overflow: hidden;
   cursor: auto;
@@ -169,6 +174,19 @@ button {
   z-index: 1000;
   touch-action: none;
   -ms-touch-action: none;
+}
+
+@media (max-width: 768px) {
+  .joystick-wrapper {
+    bottom: 260px;
+    gap: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .joystick-wrapper {
+    bottom: 280px;
+  }
 }
 
 .arrow-btn {
@@ -1133,7 +1151,7 @@ canvas {
 /* ==================== IPOD CLICK WHEEL ==================== */
 .ipod-container {
   position: fixed;
-  bottom: 60px;
+  bottom: 30px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -1144,12 +1162,11 @@ canvas {
 
 .ipod-wheel {
   position: relative;
-  width: 160px;
-  height: 160px;
-  background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+  width: 192px;
+  height: 192px;
+  background: #1d1d1d;
   border-radius: 50%;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
   user-select: none;
   cursor: grab;
   touch-action: none;
@@ -1179,17 +1196,18 @@ canvas {
 
 .menu-btn {
   position: absolute;
-  top: 16px;
+  top: 18px;
   left: 50%;
   transform: translateX(-50%);
   background: none;
   border: none;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
+  color: #b0b0b0;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 4px 12px;
   border-radius: 3px;
   transition: all 0.2s;
   z-index: 10;
@@ -1225,11 +1243,11 @@ canvas {
   position: absolute;
   background: none;
   border: none;
-  color: #ffffff;
-  font-size: 13px;
+  color: #b0b0b0;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  padding: 8px;
+  padding: 8px 0px;
   border-radius: 3px;
   transition: all 0.2s;
   z-index: 10;
@@ -1245,7 +1263,7 @@ canvas {
 }
 
 .prev-btn {
-  left: 18px;
+  left: 8px;
   top: 50%;
   transform: translateY(-50%);
 }
@@ -1255,7 +1273,7 @@ canvas {
 }
 
 .next-btn {
-  right: 18px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
 }
@@ -1269,26 +1287,25 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 50px;
-  height: 50px;
-  background: linear-gradient(145deg, #3a3a3a 0%, #2a2a2a 100%);
-  border: 2px solid #1a1a1a;
+  width: 75px;
+  height: 75px;
+  background: #333333;
+  border: 1px solid #111111;
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.05);
   z-index: 5;
 }
 
 .center-btn:hover {
-  background: linear-gradient(145deg, #4a4a4a 0%, #3a3a3a 100%);
+  background: #3a3a3a;
 }
 
 .center-btn:active {
-  background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
-  transform: translate(-50%, -50%) scale(0.95);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  background: #2a2a2a;
+  transform: translate(-50%, -50%) scale(0.98);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* ==================== EXPANDING MENU ==================== */
@@ -1298,7 +1315,7 @@ canvas {
 
 .expanding-menu {
   position: fixed;
-  bottom: calc(80px + 140px);
+  bottom: 230px;
   left: 50%;
   width: auto;
   max-width: 90vw;
@@ -1327,86 +1344,60 @@ canvas {
 }
 
 /* =========================
-     MENU TABS (TEXT ONLY)
+     MENU TABS — DAMSO STYLE
      ========================= */
 
 .menu-tabs {
   display: flex;
-  gap: 18px;
+  gap: 4px;
   align-items: center;
 }
 
 .menu-tab {
-  padding: 8px 14px;
+  padding: 7px 16px;
   border: none;
   background: transparent;
-  color: #ffffff;
+  color: rgba(255, 255, 255, 0.65);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
   cursor: pointer;
-  border-radius: 10px;
-  transition: all 0.25s ease;
+  border-radius: 999px;
+  transition: background 0.25s ease, color 0.25s ease, opacity 0.3s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
-  overflow: hidden;
   white-space: nowrap;
+
+  /* Entrance animation — starts hidden, slides up cleanly */
   opacity: 0;
-  transform: translateY(26px) scale(0.75) rotateX(45deg);
+  transform: translateY(10px);
 }
 
 .expanding-menu.open .menu-tab {
   opacity: 1;
-  transform: translateY(0) scale(1) rotateX(0deg);
+  transform: translateY(0);
 }
+
 .menu-tab.cart-tab {
-  overflow: visible;   /* ✅ KEY FIX */
-}
-.menu-tab:nth-child(1) {
-  transition-delay: 0.25s;
+  overflow: visible;
 }
 
-.menu-tab:nth-child(2) {
-  transition-delay: 0.4s;
-}
+/* Staggered intro delays */
+.menu-tab:nth-child(1) { transition-delay: 0.15s; }
+.menu-tab:nth-child(2) { transition-delay: 0.22s; }
+.menu-tab:nth-child(3) { transition-delay: 0.29s; }
 
-.menu-tab:nth-child(3) {
-  transition-delay: 0.55s;
-}
-
-/* ACTIVE STATE (NO BG) */
+/* ACTIVE STATE — white pill, black text */
 .menu-tab.active {
-  background: transparent;
+  background: #ffffff;
+  color: #111111;
+}
+
+/* HOVER — smooth fade in */
+.menu-tab:not(.active):hover {
   color: #ffffff;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-}
-
-/* HOVER EFFECT */
-.menu-tab:hover {
-  background: transparent;
-  opacity: 0.8;
-  transform: translateY(-1px);
-}
-
-/* SHIMMER LINE */
-.menu-tab::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -120%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.35),
-    transparent
-  );
-  transition: left 0.5s ease;
-}
-
-.menu-tab:hover::before {
-  left: 120%;
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* =========================
@@ -3093,4 +3084,265 @@ canvas {
   .product .shop-thumb {
     max-width: 100%;
   }
+}
+
+/* ==================== PRODUCT HERO OVERLAY ==================== */
+.product-hero-layout {
+  position: fixed;
+  inset: 0;
+  z-index: 2; /* Below canvas */
+  background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.hero-header-top {
+  position: absolute;
+  top: 40px;
+  left: 40px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 10;
+}
+
+.hero-product-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #111;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.hero-pill {
+  padding: 6px 14px;
+  background: #d4d4d4;
+  color: #111;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.hero-white-card {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  height: 60vh;
+  min-height: 400px;
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.more-info-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: #f4f4f4;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #666;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+
+.more-info-btn:hover {
+  background: #e0e0e0;
+  color: #111;
+}
+
+.hero-add-btn {
+  width: 100%;
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.hero-add-btn:hover {
+  background: #111111;
+}
+
+.pill-controller {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  height: 64px;
+  background: #333333;
+  border-radius: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  border: 3px solid #1a1a1a;
+}
+
+.pill-btn {
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pill-btn:hover {
+  color: #ffffff;
+}
+
+.pill-close-btn {
+  font-size: 20px;
+  color: #d0d0d0;
+}
+
+.media-slider-dots {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+}
+
+.media-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background: #d4d4d4;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.media-dot:hover {
+  background: #a0a0a0;
+}
+
+.media-dot.active {
+  width: 24px;
+  background: #111111;
+}
+
+@keyframes slideUpAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUpAndFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes damsoPopUp {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes damsoPopDown {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.92) translateY(40px);
+  }
+}
+
+@keyframes slideInNext {
+  0% { opacity: 0; transform: translateX(30px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInPrev {
+  0% { opacity: 0; transform: translateX(-30px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+.slide-content-next {
+  animation: slideInNext 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.slide-content-prev {
+  animation: slideInPrev 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.damso-pop-up {
+  animation: damsoPopUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.damso-pop-down {
+  animation: damsoPopDown 0.62s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.damso-modal {
+  position: relative;
+  width: 90%;
+  max-width: 500px;
+  height: 65vh;
+  min-height: 480px;
+  max-height: 750px;
+  background: rgba(180, 180, 180, 0.5); /* Frosted Damso Glass */
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+.damso-pill-controller {
+  width: 220px;
+  height: 60px;
+  background: #222222;
+  border-radius: 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  border: 6px solid #141414; /* Thick contrast outer ring matching Damso */
+  pointer-events: auto;
 }

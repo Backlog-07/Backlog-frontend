@@ -186,3 +186,46 @@ code {
     transform: none;
   }
 }
+
+/* Responsive shell layout */
+html,
+body,
+#root,
+.App,
+.shop {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+canvas,
+.react-three-fiber canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+@media (max-width: 1024px) {
+  body {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 13px;
+  }
+
+  body,
+  #root,
+  .App,
+  .shop {
+    overflow-x: hidden;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 12px;
+  }
+}

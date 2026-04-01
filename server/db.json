@@ -56,7 +56,7 @@
       "available": true,
       "preOrder": false,
       "imageUrl": null,
-      "glbUrl": "/uploads/1773239352043-mens_caro_flannel_shirt.glb"
+      "glbUrl": "/uploads/1772904729619-t_shirt.glb"
     },
     {
       "id": "p177323929539353",
@@ -367,7 +367,7 @@
           "name": "T-SHIRT NOIR",
           "price": "89",
           "size": "S",
-          "imageUrl": null,
+          "imageUrl": "uploads/t_shirt.glb",
           "qty": 1,
           "stockAvailable": 6
         }

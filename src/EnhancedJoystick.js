@@ -1,11 +1,10 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useEffect } from "react";
 
 export default function EnhancedJoystick({ onArrowClick, menuOpen, setMenuOpen, onCenterClick }) {
   const wheelRef = useRef(null);
   const draggingRef = useRef(false);
   const lastAngleRef = useRef(0);
   const angleAccumulatorRef = useRef(0);
-  const [rotation, setRotation] = useState(0);
 
   const getAngle = (clientX, clientY) => {
     if (!wheelRef.current) return 0;
@@ -38,8 +37,6 @@ export default function EnhancedJoystick({ onArrowClick, menuOpen, setMenuOpen, 
     
     lastAngleRef.current = currentAngle;
     angleAccumulatorRef.current += angleDelta;
-    
-    setRotation((prev) => prev + angleDelta);
 
     const THRESHOLD = 20;
 
@@ -89,12 +86,7 @@ export default function EnhancedJoystick({ onArrowClick, menuOpen, setMenuOpen, 
 </button>
 
 
-        {/* <div
-          className="wheel-ring"
-          style={{ transform: `rotate(${rotation}deg)` }}
-        >
-          <div className="rotation-indicator" />
-        </div> */}
+
 
         <button
           className="control-btn prev-btn"
