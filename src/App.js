@@ -23,6 +23,8 @@ function MainApp() {
   const [offset, setOffset] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [noProducts, setNoProducts] = useState(false);
+  const [shopifyError, setShopifyError] = useState("");
   const [selectedSize, setSelectedSize] = useState(null);
   const [sizeDropdownOpen, setSizeDropdownOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -33,13 +35,6 @@ function MainApp() {
   const [slideDir, setSlideDir] = useState('none');
   const [cartOpen, setCartOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState("3d"); // "2d" or "3d"
-  const [tabDotsDrag, setTabDotsDrag] = useState(false);
-  const tabDotsRef = useRef(null);
-  const tabDotsDragStartRef = useRef(0);
-
-  const [preOrderEmail, setPreOrderEmail] = useState("");
-  const [preOrderSubmitting, setPreOrderSubmitting] = useState(false);
-  const [preOrderSuccess, setPreOrderSuccess] = useState(false);
 
   // Shopify cart state
   const [cart, setCart] = useState(null); // { id, lines, checkoutUrl }
@@ -47,9 +42,6 @@ function MainApp() {
 
   const scrollTimeoutRef = useRef(null);
   const offsetRef = useRef(0);
-
-  const [show3DHint, setShow3DHint] = useState(false);
-  const hintTimerRef = useRef(null);
 
   useEffect(() => {
     offsetRef.current = offset;
@@ -224,22 +216,26 @@ function MainApp() {
     const load = async () => {
       try {
         const data = await fetchShopifyProducts();
-        // Normalize Shopify product data for your carousel
-        const normalized = data.map((p) => ({
+        const normalized = (Array.isArray(data) ? data : []).map((p) => ({
           id: p.id,
           name: p.title,
           desc: p.description,
           imageUrl: p.images?.edges?.[0]?.node?.url || null,
           glbUrl: p.metafield?.value || null,
-          sizes: p.variants?.edges?.map(v => v.node.title) || [],
+          sizes: p.variants?.edges?.map((v) => v.node.title) || [],
           variants: p.variants, // preserve raw variants for cart
           price: p.variants?.edges?.[0]?.node?.price?.amount || "0",
           stock: p.variants?.edges?.[0]?.node?.availableForSale ? 10 : 0,
           available: p.variants?.edges?.[0]?.node?.availableForSale,
         }));
+
         setProducts(normalized);
+        setNoProducts(normalized.length === 0);
+        setShopifyError("");
       } catch (e) {
         setProducts(DEFAULT_PRODUCTS);
+        setNoProducts(true);
+        setShopifyError(String(e?.message || e || "Failed to fetch from Shopify"));
       } finally {
         setLoading(false);
       }
@@ -366,32 +362,6 @@ function MainApp() {
     }
   };
 
-  // 1-second hint when sheet opens on 3D tab
-  useEffect(() => {
-    if (hintTimerRef.current) {
-      clearTimeout(hintTimerRef.current);
-      hintTimerRef.current = null;
-    }
-
-    if (!sheetVisible || sheetTab !== "3d" || !selectedProduct?.glbUrl) {
-      setShow3DHint(false);
-      return;
-    }
-
-    setShow3DHint(true);
-    hintTimerRef.current = setTimeout(() => {
-      setShow3DHint(false);
-      hintTimerRef.current = null;
-    }, 1000);
-
-    return () => {
-      if (hintTimerRef.current) {
-        clearTimeout(hintTimerRef.current);
-        hintTimerRef.current = null;
-      }
-    };
-  }, [sheetVisible, sheetTab, selectedProduct?.glbUrl]);
-
   const handleCenterButtonClick = () => {
     if (!products.length) return;
     // Derive active product at click-time to avoid using a stale activeIndex.
@@ -406,9 +376,6 @@ function MainApp() {
       setSelectedProduct(null);
       setSelectedSize(null);
       setQuantity(1);
-      setPreOrderEmail("");
-      setPreOrderSubmitting(false);
-      setPreOrderSuccess(false);
     }, 300);
   };
 
@@ -443,103 +410,39 @@ function MainApp() {
     }
   };
 
-  const handleBuyNow = async () => {
-    if (!selectedProduct) return;
-    const variant = products
-      .find(p => p.id === selectedProduct.id)
-      ?.variants?.edges?.find(v => v.node.title === selectedSize)?.node;
-    if (!variant) {
-      alert("Variant not found for selected size");
-      return;
-    }
-    try {
-      // Always create a new cart for Buy Now
-      const newCart = await createCart([
-        { merchandiseId: variant.id, quantity: Number(quantity) || 1 }
-      ]);
-      window.location.href = newCart.checkoutUrl;
-    } catch (err) {
-      alert("Error with Buy Now");
-    }
-  };
-
-  const handlePreOrder = async () => {
-    if (!selectedProduct) return;
-    if (!preOrderEmail || !String(preOrderEmail).includes('@')) {
-      alert('Please enter a valid email');
-      return;
-    }
-    try {
-      setPreOrderSubmitting(true);
-      const res = await fetch(`${API_BASE}/api/preorders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: selectedProduct.code || selectedProduct.id,
-          email: preOrderEmail,
-          size: selectedSize,
-          qty: Number(quantity) || 1,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Pre-order failed');
-      setPreOrderSuccess(true);
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      setPreOrderSubmitting(false);
-    }
-  };
-
-  const handleTabDotsDragStart = (e) => {
-    setTabDotsDrag(true);
-    const startX = e.clientX !== undefined ? e.clientX : e.touches?.[0]?.clientX || 0;
-    tabDotsDragStartRef.current = startX;
-  };
-
-  const handleTabDotsDragMove = useCallback((e) => {
-    if (!tabDotsDrag) return;
-    const currentX = e.clientX !== undefined ? e.clientX : e.touches?.[0]?.clientX || 0;
-    const delta = currentX - tabDotsDragStartRef.current;
-    
-    // Swipe left (negative delta) = switch to 3D
-    // Swipe right (positive delta) = switch to 2D
-    if (Math.abs(delta) > 30) {
-      if (delta < 0) {
-        setSheetTab("3d");
-      } else {
-        setSheetTab("2d");
-      }
-      setTabDotsDrag(false);
-    }
-  }, [tabDotsDrag]);
-
-  const handleTabDotsDragEnd = () => {
-    setTabDotsDrag(false);
-  };
-
-  useEffect(() => {
-    if (!tabDotsDrag) return;
-    
-    window.addEventListener("mousemove", handleTabDotsDragMove);
-    window.addEventListener("mouseup", handleTabDotsDragEnd);
-    window.addEventListener("touchmove", handleTabDotsDragMove);
-    window.addEventListener("touchend", handleTabDotsDragEnd);
-    
-    return () => {
-      window.removeEventListener("mousemove", handleTabDotsDragMove);
-      window.removeEventListener("mouseup", handleTabDotsDragEnd);
-      window.removeEventListener("touchmove", handleTabDotsDragMove);
-      window.removeEventListener("touchend", handleTabDotsDragEnd);
-    };
-  }, [tabDotsDrag, handleTabDotsDragMove]);
-
   if (loading) {
     return null;
   }
 
   return (
     <div className="app">
+      {noProducts && !selectedProduct && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            fontWeight: 700,
+            letterSpacing: 1,
+            textTransform: "uppercase",
+            color: "#111",
+            opacity: 0.8,
+          }}
+        >
+          <div style={{ textAlign: "center", padding: 20 }}>
+            <div>No products right now</div>
+            {process.env.NODE_ENV !== "production" && shopifyError && (
+              <div style={{ marginTop: 10, fontSize: 12, fontWeight: 600, opacity: 0.65, textTransform: "none", letterSpacing: 0 }}>
+                {shopifyError}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* Header */}
       {!selectedProduct && (
         <header className="header">
@@ -929,7 +832,6 @@ export default function App() {
 
 function WorldApp() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
-  const [targetOffset, setTargetOffset] = useState(0);
   const [offset, setOffset] = useState(0); // used for UI/label and selection logic
   // activeIndex not needed now that the bottom sheet is removed
   const [loading, setLoading] = useState(true);

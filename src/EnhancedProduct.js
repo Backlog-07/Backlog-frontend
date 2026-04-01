@@ -16,6 +16,8 @@ function resolveGlbUrl(glbUrl) {
   if (!glbUrl) return null;
   if (glbUrl.startsWith("http")) return glbUrl;
   if (glbUrl.startsWith("/uploads/")) return `${API_BASE}${glbUrl}`;
+  // Support legacy/metafield values like "/models/t_shirt.glb" by serving via API host
+  if (glbUrl.startsWith("/models/")) return `${API_BASE}${glbUrl}`;
   return glbUrl;
 }
 

@@ -6,57 +6,56 @@ export default function EnhancedJoystick({ onArrowClick, menuOpen, setMenuOpen, 
   const lastAngleRef = useRef(0);
   const angleAccumulatorRef = useRef(0);
 
-  const getAngle = (clientX, clientY) => {
-    if (!wheelRef.current) return 0;
-    const rect = wheelRef.current.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const deltaX = clientX - centerX;
-    const deltaY = clientY - centerY;
-    return Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-  };
-
-  const normalizeAngle = (angle) => {
-    while (angle > 180) angle -= 360;
-    while (angle < -180) angle += 360;
-    return angle;
-  };
-
-  const handlePointerDown = (e) => {
-    e.preventDefault();
-    draggingRef.current = true;
-    lastAngleRef.current = getAngle(e.clientX, e.clientY);
-    angleAccumulatorRef.current = 0;
-  };
-
-  const handlePointerMove = (e) => {
-    if (!draggingRef.current) return;
-
-    const currentAngle = getAngle(e.clientX, e.clientY);
-    const angleDelta = normalizeAngle(currentAngle - lastAngleRef.current);
-    
-    lastAngleRef.current = currentAngle;
-    angleAccumulatorRef.current += angleDelta;
-
-    const THRESHOLD = 20;
-
-    if (angleAccumulatorRef.current > THRESHOLD) {
-      if (onArrowClick) onArrowClick(1);
-      angleAccumulatorRef.current = 0;
-    } else if (angleAccumulatorRef.current < -THRESHOLD) {
-      if (onArrowClick) onArrowClick(-1);
-      angleAccumulatorRef.current = 0;
-    }
-  };
-
-  const handlePointerUp = () => {
-    draggingRef.current = false;
-    angleAccumulatorRef.current = 0;
-  };
-
   useEffect(() => {
     const wheel = wheelRef.current;
     if (!wheel) return;
+
+    const getAngle = (clientX, clientY) => {
+      const rect = wheel.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const deltaX = clientX - centerX;
+      const deltaY = clientY - centerY;
+      return Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+    };
+
+    const normalizeAngle = (angle) => {
+      while (angle > 180) angle -= 360;
+      while (angle < -180) angle += 360;
+      return angle;
+    };
+
+    const handlePointerDown = (e) => {
+      e.preventDefault();
+      draggingRef.current = true;
+      lastAngleRef.current = getAngle(e.clientX, e.clientY);
+      angleAccumulatorRef.current = 0;
+    };
+
+    const handlePointerMove = (e) => {
+      if (!draggingRef.current) return;
+
+      const currentAngle = getAngle(e.clientX, e.clientY);
+      const angleDelta = normalizeAngle(currentAngle - lastAngleRef.current);
+
+      lastAngleRef.current = currentAngle;
+      angleAccumulatorRef.current += angleDelta;
+
+      const THRESHOLD = 20;
+
+      if (angleAccumulatorRef.current > THRESHOLD) {
+        if (onArrowClick) onArrowClick(1);
+        angleAccumulatorRef.current = 0;
+      } else if (angleAccumulatorRef.current < -THRESHOLD) {
+        if (onArrowClick) onArrowClick(-1);
+        angleAccumulatorRef.current = 0;
+      }
+    };
+
+    const handlePointerUp = () => {
+      draggingRef.current = false;
+      angleAccumulatorRef.current = 0;
+    };
 
     wheel.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("pointermove", handlePointerMove);

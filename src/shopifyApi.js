@@ -1,17 +1,21 @@
 // Shopify Storefront API utility
-const SHOPIFY_DOMAIN = process.env.REACT_APP_SHOPIFY_DOMAIN;
-const STOREFRONT_API_TOKEN = process.env.REACT_APP_SHOPIFY_STOREFRONT_TOKEN;
+const SHOPIFY_DOMAIN = process.env.REACT_APP_SHOPIFY_DOMAIN || "";
+const STOREFRONT_API_TOKEN = process.env.REACT_APP_SHOPIFY_STOREFRONT_TOKEN || "";
+const SHOPIFY_API_VERSION = process.env.REACT_APP_SHOPIFY_API_VERSION || "2025-10";
+const STOREFRONT_API_URL = SHOPIFY_DOMAIN
+  ? `https://${SHOPIFY_DOMAIN}/api/${SHOPIFY_API_VERSION}/graphql.json`
+  : "";
 
-if (!SHOPIFY_DOMAIN) {
-  throw new Error("Missing REACT_APP_SHOPIFY_DOMAIN");
+function assertShopifyConfigured() {
+  if (!SHOPIFY_DOMAIN || !STOREFRONT_API_TOKEN || !STOREFRONT_API_URL) {
+    throw new Error(
+      "Shopify is not configured. Set REACT_APP_SHOPIFY_DOMAIN and REACT_APP_SHOPIFY_STOREFRONT_TOKEN in your .env (and restart the dev server)."
+    );
+  }
 }
-if (!STOREFRONT_API_TOKEN) {
-  throw new Error("Missing REACT_APP_SHOPIFY_STOREFRONT_TOKEN");
-}
-
-const STOREFRONT_API_URL = `https://${SHOPIFY_DOMAIN}/api/2023-10/graphql.json`;
 
 async function shopifyGraphQL(query, variables = {}) {
+  assertShopifyConfigured();
   const res = await fetch(STOREFRONT_API_URL, {
     method: "POST",
     headers: {
@@ -20,8 +24,21 @@ async function shopifyGraphQL(query, variables = {}) {
     },
     body: JSON.stringify({ query, variables }),
   });
-  const json = await res.json();
-  if (json.errors) throw new Error(JSON.stringify(json.errors));
+  const text = await res.text();
+  let json;
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = {};
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Shopify request failed (${res.status}). ${
+        json?.errors ? JSON.stringify(json.errors) : text || res.statusText
+      }`
+    );
+  }
+  if (json.errors) throw new Error(`Shopify GraphQL errors: ${JSON.stringify(json.errors)}`);
   return json.data;
 }
 
