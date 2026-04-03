@@ -541,7 +541,7 @@ function MainApp() {
           onSelect={openProductView}
           forceCentered={!!selectedProduct}
           isPreview={!!selectedProduct}
-          interactive={true}
+          interactive={!!selectedProduct?.glbUrl && sheetTab === "3d"}
         />
       </div>
 
