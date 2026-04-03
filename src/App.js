@@ -495,7 +495,7 @@ function MainApp() {
       {/* Header */}
       {!selectedProduct && (
         <header className="header">
-          <div className="logo">Backlog</div>
+          <div className="logo">backlogstore</div>
           <div className="nav">
             <span className="nav-text">
               {products[getActiveIndexFromOffset(offsetRef.current)]?.name || ""}
@@ -1105,7 +1105,7 @@ function WorldApp() {
     <div className="app">
       {/* Header */}
       <header className="header">
-        <div className="logo">Backlog</div>
+        <div className="logo">backlogstore</div>
         <div className="nav">
           <span className="nav-text">
             {/* World page: keep header clean (no shifting product name) */}
