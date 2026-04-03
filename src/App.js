@@ -13,6 +13,36 @@ import { getCarouselItemWidth } from "./carouselLayout";
 const API_BASE = (process.env.REACT_APP_API_URL || "http://localhost:4000").replace(/\/$/, "");
 const getItemWidth = () => getCarouselItemWidth();
 const DEFAULT_PRODUCTS = [];
+const normalizeBackendProduct = (p) => ({
+  ...p,
+  id: p.id,
+  name: p.name || p.title || "Item",
+  desc: p.desc || p.description || "",
+  imageUrl: p.imageUrl || p.images?.edges?.[0]?.node?.url || null,
+  glbUrl: p.glbUrl || p.metafield?.value || null,
+  sizes: Array.isArray(p.sizes)
+    ? p.sizes
+    : p.variants?.edges?.map((v) => v.node.title) || [],
+  variants: p.variants || null,
+  price: p.price || p.variants?.edges?.[0]?.node?.price?.amount || "0",
+  stock: Number(p.stock) || 0,
+  available:
+    typeof p.available === "boolean"
+      ? p.available
+      : (Number(p.stock) || 0) > 0,
+});
+const normalizeShopifyProduct = (p) => ({
+  id: p.id,
+  name: p.title,
+  desc: p.description,
+  imageUrl: p.images?.edges?.[0]?.node?.url || null,
+  glbUrl: p.metafield?.value || null,
+  sizes: p.variants?.edges?.map((v) => v.node.title) || [],
+  variants: p.variants,
+  price: p.variants?.edges?.[0]?.node?.price?.amount || "0",
+  stock: p.variants?.edges?.[0]?.node?.availableForSale ? 10 : 0,
+  available: p.variants?.edges?.[0]?.node?.availableForSale,
+});
 const formatPrice = (value) => {
   if (value == null) return "₹0";
   return `₹${value}`;
@@ -214,28 +244,47 @@ function MainApp() {
 
   useEffect(() => {
     const load = async () => {
+      const loadBackendProducts = async () => {
+        const res = await fetch(`${API_BASE}/api/products`);
+        if (!res.ok) throw new Error("Failed to fetch backend products");
+        const data = await res.json();
+        return (Array.isArray(data) ? data : []).map(normalizeBackendProduct);
+      };
+
       try {
         const data = await fetchShopifyProducts();
-        const normalized = (Array.isArray(data) ? data : []).map((p) => ({
-          id: p.id,
-          name: p.title,
-          desc: p.description,
-          imageUrl: p.images?.edges?.[0]?.node?.url || null,
-          glbUrl: p.metafield?.value || null,
-          sizes: p.variants?.edges?.map((v) => v.node.title) || [],
-          variants: p.variants, // preserve raw variants for cart
-          price: p.variants?.edges?.[0]?.node?.price?.amount || "0",
-          stock: p.variants?.edges?.[0]?.node?.availableForSale ? 10 : 0,
-          available: p.variants?.edges?.[0]?.node?.availableForSale,
-        }));
+        const normalized = (Array.isArray(data) ? data : []).map(normalizeShopifyProduct);
 
-        setProducts(normalized);
-        setNoProducts(normalized.length === 0);
+        if (normalized.length > 0) {
+          setProducts(normalized);
+          setNoProducts(false);
+          setShopifyError("");
+          return;
+        }
+
+        const backendProducts = await loadBackendProducts();
+        setProducts(backendProducts);
+        setNoProducts(backendProducts.length === 0);
         setShopifyError("");
       } catch (e) {
-        setProducts(DEFAULT_PRODUCTS);
-        setNoProducts(true);
-        setShopifyError(String(e?.message || e || "Failed to fetch from Shopify"));
+        try {
+          const backendProducts = await loadBackendProducts();
+          setProducts(backendProducts);
+          setNoProducts(backendProducts.length === 0);
+          setShopifyError(
+            `Shopify unavailable, showing backend products. ${String(
+              e?.message || e || "Failed to fetch from Shopify"
+            )}`
+          );
+        } catch (backendError) {
+          setProducts(DEFAULT_PRODUCTS);
+          setNoProducts(true);
+          setShopifyError(
+            `Shopify and backend fetch failed. ${String(
+              e?.message || e || "Failed to fetch from Shopify"
+            )}`
+          );
+        }
       } finally {
         setLoading(false);
       }
