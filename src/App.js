@@ -54,7 +54,7 @@ function MainApp() {
        setSheetVisible(false);
        setIsClosingSheet(false);
        setIsClosingHero(false);
-    }, 620); // Sync with smooth pop-down duration
+    }, 520); // Sync with smooth pop-down duration
   };
 
   const handleCloseSheet = () => {
@@ -62,13 +62,13 @@ function MainApp() {
     setTimeout(() => {
       setSheetVisible(false);
       setIsClosingSheet(false);
-    }, 620); // Sync with smooth pop-down duration
+    }, 520); // Sync with smooth pop-down duration
   };
 
   const getActiveIndexFromOffset = useCallback((off) => {
     if (!products.length) return 0;
     const w = getCurrentItemWidth();
-    const raw = Math.round(-off / w);
+    const raw = Math.round(off / w);
     return ((raw % products.length) + products.length) % products.length;
   }, [products.length]);
 
@@ -142,7 +142,7 @@ function MainApp() {
   const setSnapTarget = useCallback((rawIndex) => {
     const a = animRef.current;
     const w = getCurrentItemWidth();
-    a.target = -rawIndex * w;
+    a.target = rawIndex * w;
     startInertial();
   }, [startInertial]);
 
@@ -157,7 +157,7 @@ function MainApp() {
     if (products.length === 0) return;
     const currentOffset = offsetRef.current;
     const w = getCurrentItemWidth();
-    const raw = Math.round(-currentOffset / w);
+    const raw = Math.round(currentOffset / w);
     setSnapTarget(raw);
   }, [products.length, setSnapTarget]);
 
@@ -165,13 +165,13 @@ function MainApp() {
     if (!products.length) return;
     const currentOffset = offsetRef.current;
     const w = getCurrentItemWidth();
-    const raw = Math.round(-currentOffset / w);
+    const raw = Math.round(currentOffset / w);
     const nextRaw = raw + direction;
     setSnapTarget(nextRaw);
   }, [products.length, setSnapTarget]);
 
   const handleArrowClick = useCallback((direction) => {
-    stepBy(direction);
+    stepBy(-direction);
   }, [stepBy]);
 
   const handleJoystickDrag = (delta) => {
@@ -532,7 +532,7 @@ function MainApp() {
            inset: 0,
            zIndex: 5,
            pointerEvents: sheetVisible ? 'none' : 'auto',
-           opacity: sheetTab === '3d' ? 1 : 0,
+           opacity: selectedProduct ? (sheetTab === '3d' ? 1 : 0) : 1,
            transition: 'opacity 0.3s'
       }}>
         <Scene 
@@ -761,7 +761,7 @@ function MainApp() {
                     <button className="pill-btn" onClick={() => {
                       setSlideDir('prev');
                       const w = getCurrentItemWidth();
-                      const raw = Math.round(-offsetRef.current / w);
+                      const raw = Math.round(offsetRef.current / w);
                       setSnapTarget(raw - 1);
                       const newIdx = (((raw - 1) % products.length) + products.length) % products.length;
                       if (products[newIdx]) openProductView(products[newIdx]);
@@ -772,7 +772,7 @@ function MainApp() {
                     <button className="pill-btn" onClick={() => {
                       setSlideDir('next');
                       const w = getCurrentItemWidth();
-                      const raw = Math.round(-offsetRef.current / w);
+                      const raw = Math.round(offsetRef.current / w);
                       setSnapTarget(raw + 1);
                       const newIdx = (((raw + 1) % products.length) + products.length) % products.length;
                       if (products[newIdx]) openProductView(products[newIdx]);
