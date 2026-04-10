@@ -21,6 +21,118 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const DB_PATH = path.join(__dirname, 'db.json');
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const WORLD_IMAGES_PROVIDER = (process.env.WORLD_IMAGES_PROVIDER || 'local').toLowerCase();
+const NEON_DATABASE_URL = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || '';
+
+let pgPool = null;
+try {
+  // Optional dependency: only needed when WORLD_IMAGES_PROVIDER=neon
+  const { Pool } = require('pg');
+  if (NEON_DATABASE_URL) {
+    pgPool = new Pool({
+      connectionString: NEON_DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+  }
+} catch (e) {
+  // Keep local-json fallback working even when pg is not installed.
+  pgPool = null;
+}
+
+function isNeonWorldEnabled() {
+  return WORLD_IMAGES_PROVIDER === 'neon' && !!pgPool;
+}
+
+async function ensureWorldImagesTable() {
+  if (!isNeonWorldEnabled()) return;
+  await pgPool.query(`
+    CREATE TABLE IF NOT EXISTS world_images (
+      id TEXT PRIMARY KEY,
+      image_url TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+}
+
+async function listWorldImages() {
+  if (!isNeonWorldEnabled()) {
+    const db = readDB();
+    return db.worldImages || [];
+  }
+  await ensureWorldImagesTable();
+  const { rows } = await pgPool.query(
+    `SELECT id, image_url, created_at FROM world_images ORDER BY created_at DESC`
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    imageUrl: r.image_url,
+    createdAt: r.created_at,
+  }));
+}
+
+async function insertWorldImage(imageUrl) {
+  if (!isNeonWorldEnabled()) {
+    const db = readDB();
+    db.worldImages = db.worldImages || [];
+    const imageId = 'wi-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+    const imageRecord = {
+      id: imageId,
+      imageUrl,
+      createdAt: new Date().toISOString(),
+    };
+    db.worldImages.unshift(imageRecord);
+    writeDB(db);
+    return imageRecord;
+  }
+
+  await ensureWorldImagesTable();
+  const imageId = 'wi-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+  const { rows } = await pgPool.query(
+    `INSERT INTO world_images (id, image_url) VALUES ($1, $2) RETURNING id, image_url, created_at`,
+    [imageId, imageUrl]
+  );
+  const row = rows[0];
+  return {
+    id: row.id,
+    imageUrl: row.image_url,
+    createdAt: row.created_at,
+  };
+}
+
+async function deleteWorldImageById(id) {
+  if (!isNeonWorldEnabled()) {
+    const db = readDB();
+    db.worldImages = db.worldImages || [];
+    const imageToDelete = db.worldImages.find((img) => img.id === id);
+    if (!imageToDelete) return null;
+
+    // Best-effort cleanup only for local uploads.
+    try {
+      if (typeof imageToDelete.imageUrl === 'string' && imageToDelete.imageUrl.startsWith('/uploads/')) {
+        const filePath = path.join(UPLOAD_DIR, path.basename(imageToDelete.imageUrl));
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+    } catch (e) {
+      console.error('Failed to delete local world image file:', e);
+    }
+
+    db.worldImages = db.worldImages.filter((img) => img.id !== id);
+    writeDB(db);
+    return imageToDelete;
+  }
+
+  await ensureWorldImagesTable();
+  const { rows } = await pgPool.query(
+    `DELETE FROM world_images WHERE id = $1 RETURNING id, image_url, created_at`,
+    [id]
+  );
+  if (!rows.length) return null;
+  return {
+    id: rows[0].id,
+    imageUrl: rows[0].image_url,
+    createdAt: rows[0].created_at,
+  };
+}
 
 // Simple static config - replace with env/secure storage for production
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
@@ -676,59 +788,54 @@ app.post('/api/upload/glb', requireAuth, upload.single('file'), (req, res) => {
 });
 
 // World Images endpoints
-app.post('/api/world-images/upload', requireAuth, upload.single('file'), (req, res) => {
+app.post('/api/world-images/upload', requireAuth, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  
-  const db = readDB();
-  db.worldImages = db.worldImages || [];
-  
-  const imageId = 'wi-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
-  const imageUrl = '/uploads/' + req.file.filename;
-  
-  const imageRecord = {
-    id: imageId,
-    imageUrl: imageUrl,
-    createdAt: new Date().toISOString()
-  };
-  
-  db.worldImages.unshift(imageRecord);
-  writeDB(db);
-  
-  res.json({ success: true, url: imageUrl, id: imageId });
-});
-
-app.get('/api/world-images', (req, res) => {
-  const db = readDB();
-  const worldImages = db.worldImages || [];
-  res.json(worldImages);
-});
-
-app.delete('/api/world-images/:id', requireAuth, (req, res) => {
-  const { id } = req.params;
-  const db = readDB();
-  
-  db.worldImages = db.worldImages || [];
-  const imageToDelete = db.worldImages.find(img => img.id === id);
-  
-  if (!imageToDelete) {
-    return res.status(404).json({ error: 'Image not found' });
-  }
-  
-  // Try to delete the file from disk
   try {
-    const filePath = path.join(UPLOAD_DIR, path.basename(imageToDelete.imageUrl));
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    const imageUrl = '/uploads/' + req.file.filename;
+    const record = await insertWorldImage(imageUrl);
+    return res.json({ success: true, url: record.imageUrl, id: record.id, createdAt: record.createdAt });
   } catch (e) {
-    console.error('Failed to delete file:', e);
+    console.error('Failed to save uploaded world image:', e);
+    return res.status(500).json({ error: 'Failed to save world image' });
   }
-  
-  // Remove from database
-  db.worldImages = db.worldImages.filter(img => img.id !== id);
-  writeDB(db);
-  
-  res.json({ ok: true });
+});
+
+// Save an externally hosted image URL (e.g. Cloudflare R2 public URL)
+app.post('/api/world-images/url', requireAuth, async (req, res) => {
+  const imageUrl = String(req.body?.imageUrl || '').trim();
+  if (!imageUrl) return res.status(400).json({ error: 'imageUrl is required' });
+  if (!/^https?:\/\//i.test(imageUrl)) {
+    return res.status(400).json({ error: 'imageUrl must be an absolute URL (http/https)' });
+  }
+  try {
+    const record = await insertWorldImage(imageUrl);
+    return res.json({ success: true, url: record.imageUrl, id: record.id, createdAt: record.createdAt });
+  } catch (e) {
+    console.error('Failed to save external world image URL:', e);
+    return res.status(500).json({ error: 'Failed to save world image URL' });
+  }
+});
+
+app.get('/api/world-images', async (req, res) => {
+  try {
+    const worldImages = await listWorldImages();
+    return res.json(worldImages);
+  } catch (e) {
+    console.error('Failed to fetch world images:', e);
+    return res.status(500).json({ error: 'Failed to fetch world images' });
+  }
+});
+
+app.delete('/api/world-images/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const deleted = await deleteWorldImageById(id);
+    if (!deleted) return res.status(404).json({ error: 'Image not found' });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('Failed to delete world image:', e);
+    return res.status(500).json({ error: 'Failed to delete world image' });
+  }
 });
 
 // Get all orders
@@ -1439,7 +1546,7 @@ const BUILD_DIR = path.join(__dirname, '..', 'build');
 if (fs.existsSync(BUILD_DIR)) {
   app.use(express.static(BUILD_DIR));
   // Let API and uploads routes take precedence; fallback to index.html for client-side routing
-  app.get('*', (req, res) => {
+  app.get('/*', (req, res) => {
     res.sendFile(path.join(BUILD_DIR, 'index.html'));
   });
 } else {

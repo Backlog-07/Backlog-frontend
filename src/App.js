@@ -512,6 +512,9 @@ function MainApp() {
     setQuantity(1);
 
     try {
+      const pid = String(product?.id || "");
+      // Backend /api/products/:id only knows local ids (e.g. "p..."), not Shopify gid:// ids.
+      if (!pid || pid.startsWith("gid://")) return;
       const res = await fetch(`${API_BASE}/api/products/${product.id}`);
       if (res.ok) {
         const latestRaw = await res.json();

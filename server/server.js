@@ -461,9 +461,15 @@ app.get("/api/products", (req, res) => {
   res.json(products);
 });
 
+
+
+
+
 // Get single product
-app.get("/api/products/:id", (req, res) => {
-  const product = products.find(p => String(p.id) === String(req.params.id));
+app.get("/api/products/:id", (req, res, next) => {
+  // Avoid route collision with static sub-routes like /api/products/stream.
+  if (req.params.id === "stream") return next();
+  const product = products.find((p) => String(p.id) === String(req.params.id));
   if (product) {
     res.json(product);
   } else {
@@ -560,6 +566,8 @@ app.get("/api/orders/lookup", (req, res) => {
 
 // Get world images
 app.get("/api/world-images", (req, res) => {
+  // Reload from disk so manual updates are reflected without relying on stale memory.
+  loadWorldImages();
   res.json(worldImages);
 });
 
