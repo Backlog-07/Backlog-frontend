@@ -10,7 +10,7 @@ import World from "./World";
 import cartIcon from "./whitecart.png";
 import { getCarouselItemWidth } from "./carouselLayout";
 
-const API_BASE = (process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000')).replace(/\/$/, "");
+const API_BASE = (process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? '' : `http://${window.location.hostname}:4000`)).replace(/\/$/, "");
 const getItemWidth = () => getCarouselItemWidth();
 const DEFAULT_PRODUCTS = [];
 const SHOPIFY_CART_STORAGE_KEY = "shopify-cart";
@@ -20,6 +20,11 @@ const normalizeBackendProduct = (p) => ({
   name: p.name || p.title || "Item",
   desc: p.desc || p.description || "",
   imageUrl: p.imageUrl || p.images?.edges?.[0]?.node?.url || null,
+  imageUrls: (() => {
+    const base = (p.images?.edges || []).map(e => e?.node?.url).filter(Boolean);
+    if (p.imageUrl && !base.includes(p.imageUrl)) base.unshift(p.imageUrl);
+    return base.length > 0 ? base : (p.imageUrl ? [p.imageUrl] : []);
+  })(),
   glbUrl: p.glbUrl || p.metafield?.value || null,
   sizes: Array.isArray(p.sizes)
     ? p.sizes
@@ -37,6 +42,7 @@ const normalizeShopifyProduct = (p) => ({
   name: p.title,
   desc: p.description,
   imageUrl: p.images?.edges?.[0]?.node?.url || null,
+  imageUrls: (p.images?.edges || []).map(e => e?.node?.url).filter(Boolean),
   glbUrl: p.metafield?.value || null,
   sizes: p.variants?.edges?.map((v) => v.node.title) || [],
   variants: p.variants,
@@ -73,7 +79,7 @@ const writeStoredCart = (cart) => {
     } else {
       localStorage.removeItem(SHOPIFY_CART_STORAGE_KEY);
     }
-  } catch {}
+  } catch { }
 };
 
 function SiteMenu({ activePage, menuOpen, setMenuOpen, onCartOpen, cartItemCount, style }) {
@@ -177,6 +183,8 @@ function MainApp() {
   const [slideDir, setSlideDir] = useState('none');
   const [cartOpen, setCartOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState("3d"); // "2d" or "3d"
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
+  const [zoomedImage, setZoomedImage] = useState(null); // url string | null
 
   // Shopify cart state
   const [cart, setCart] = useState(() => readStoredCart()); // { id, lines, checkoutUrl }
@@ -192,10 +200,11 @@ function MainApp() {
   const handleCloseHero = () => {
     setIsClosingHero(true);
     setTimeout(() => {
-       setSelectedProduct(null);
-       setSheetVisible(false);
-       setIsClosingSheet(false);
-       setIsClosingHero(false);
+      setSelectedProduct(null);
+      setSelectedMediaIndex(0);
+      setSheetVisible(false);
+      setIsClosingSheet(false);
+      setIsClosingHero(false);
     }, 520); // Sync with smooth pop-down duration
   };
 
@@ -426,13 +435,13 @@ function MainApp() {
             })
           );
           setProducts(normalized);
-        } catch (err) {}
+        } catch (err) { }
       });
-    } catch (e) {}
+    } catch (e) { }
     return () => {
       try {
         if (es) es.close();
-      } catch (e) {}
+      } catch (e) { }
     };
   }, []);
 
@@ -473,7 +482,7 @@ function MainApp() {
     return () => {
       try {
         document.body.style.overflow = prev || '';
-      } catch (e) {}
+      } catch (e) { }
     };
   }, [sheetVisible]);
 
@@ -506,6 +515,7 @@ function MainApp() {
     };
     setSelectedProduct(base);
     setSelectedSize(base.sizes?.[0] ?? null);
+    setSelectedMediaIndex(0);
     setSheetTab(base.glbUrl ? "3d" : base.imageUrl ? "2d" : "2d");
     // keep sheet closed; reveal via 'More Informations' action
     setSheetVisible(false);
@@ -643,19 +653,21 @@ function MainApp() {
       />
 
       {/* 3D Scene - Glued to the same animation track as the UI! */}
-      <div 
-         className={selectedProduct ? (isClosingHero ? 'damso-pop-down' : 'damso-pop-up') : ''}
-         style={{
-           position: 'fixed',
-           inset: 0,
-           zIndex: 5,
-           pointerEvents: sheetVisible ? 'none' : 'auto',
-           opacity: selectedProduct ? (sheetTab === '3d' ? 1 : 0) : 1,
-           transition: 'opacity 0.3s'
-      }}>
-        <Scene 
-          offset={selectedProduct ? 0 : offset} 
-          products={selectedProduct ? [selectedProduct] : products} 
+      <div
+        className={selectedProduct ? (isClosingHero ? 'damso-pop-down' : 'damso-pop-up') : ''}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 5,
+          pointerEvents: sheetVisible ? 'none' : 'auto',
+          opacity: selectedProduct
+            ? (selectedProduct.glbUrl && selectedMediaIndex === 0 ? 1 : 0)
+            : 1,
+          transition: 'opacity 0.25s'
+        }}>
+        <Scene
+          offset={selectedProduct ? 0 : offset}
+          products={selectedProduct ? [selectedProduct] : products}
           onSelect={openProductView}
           forceCentered={!!selectedProduct}
           isPreview={!!selectedProduct}
@@ -682,19 +694,19 @@ function MainApp() {
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
           padding: '20px'
         }}>
-           <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ pointerEvents: 'none', display: (sheetVisible && !isClosingSheet) ? 'none' : 'flex' }} />
+          <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ pointerEvents: 'none', display: (sheetVisible && !isClosingSheet) ? 'none' : 'flex' }} />
         </div>
       )}
 
       {/* Full Area Background Tint/Dim when Modal is open */}
       {selectedProduct && (sheetVisible || isClosingSheet) && (
         <div style={{
-           position: 'fixed',
-           inset: 0,
-           zIndex: 8,
-           pointerEvents: 'auto',
-           backgroundColor: 'rgba(0, 0, 0, 0.2)', // Slight dim for the modal
-           animation: (isClosingHero || isClosingSheet) ? 'fadeOut 0.4s ease forwards' : 'fadeIn 0.6s ease'
+          position: 'fixed',
+          inset: 0,
+          zIndex: 8,
+          pointerEvents: 'auto',
+          backgroundColor: 'rgba(0, 0, 0, 0.2)', // Slight dim for the modal
+          animation: (isClosingHero || isClosingSheet) ? 'fadeOut 0.4s ease forwards' : 'fadeIn 0.6s ease'
         }} onClick={handleCloseSheet} />
       )}
 
@@ -705,203 +717,379 @@ function MainApp() {
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
           padding: '20px'
         }}>
-           
-           <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ 
-               pointerEvents: 'none', // The modal itself passes clicks to 3D Canvas, unless sheetVisible
-               background: 'transparent',
-               backdropFilter: 'none',
-               WebkitBackdropFilter: 'none',
-               boxShadow: 'none',
-               transition: 'background 0.4s ease, backdrop-filter 0.4s ease, box-shadow 0.4s ease',
-               ...((sheetVisible && !isClosingSheet) ? { 
-                   pointerEvents: 'auto', 
-                   background: 'rgba(180, 180, 180, 0.55)', 
-                   backdropFilter: 'blur(30px)',
-                   WebkitBackdropFilter: 'blur(30px)',
-                   boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
-               } : {}) 
-           }}>
-              
-              <div key={selectedProduct.id} className={`slide-content-${slideDir}`} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-                 {(!sheetVisible || isClosingSheet) ? (
-                    <>
-                       {/* Minimal Closed State - Just Title and MORE INFO */}
-                       <div style={{ padding: '30px', pointerEvents: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                             <span style={{ fontWeight: 800, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, color: '#111' }}>{selectedProduct.name}</span>
-                             <span style={{ background: '#e0e0e0', color: '#666', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4, letterSpacing: 0.5 }}>MERCH</span>
+
+          <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{
+            pointerEvents: 'none', // The modal itself passes clicks to 3D Canvas, unless sheetVisible
+            background: 'transparent',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            boxShadow: 'none',
+            transition: 'background 0.4s ease, backdrop-filter 0.4s ease, box-shadow 0.4s ease',
+            ...((sheetVisible && !isClosingSheet) ? {
+              pointerEvents: 'auto',
+              background: 'rgba(180, 180, 180, 0.55)',
+              backdropFilter: 'blur(30px)',
+              WebkitBackdropFilter: 'blur(30px)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
+            } : {})
+          }}>
+
+            <div key={selectedProduct.id} className={`slide-content-${slideDir}`} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              {(!sheetVisible || isClosingSheet) ? (
+                <>
+                  {/* Minimal Closed State - Just Title and MORE INFO */}
+                  <div style={{ padding: '30px', pointerEvents: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontWeight: 800, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, color: '#111' }}>{selectedProduct.name}</span>
+                      <span style={{ background: '#e0e0e0', color: '#666', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4, letterSpacing: 0.5 }}>MERCH</span>
+                    </div>
+                    <button className="more-info-btn" style={{ position: 'relative', top: 0, left: 0, alignSelf: 'flex-start' }} onClick={() => setSheetVisible(true)}>
+                      MORE INFORMATIONS +
+                    </button>
+                  </div>
+
+                  {/* ─── MEDIA CAROUSEL ─── slide 0 = 3D (transparent), 1+ = Shopify images */}
+                  {(() => {
+                    const imgs = selectedProduct.imageUrls || (selectedProduct.imageUrl ? [selectedProduct.imageUrl] : []);
+                    const has3d = !!selectedProduct.glbUrl;
+                    // total slides: 3D slide (if model exists) + image slides
+                    const slides = has3d ? ['3d', ...imgs] : imgs;
+                    const totalSlides = slides.length;
+                    const isImgSlide = slides[selectedMediaIndex] !== '3d';
+                    const imgUrl = isImgSlide ? slides[selectedMediaIndex] : null;
+
+                    return (
+                      <div style={{
+                        flex: 1, position: 'relative',
+                        pointerEvents: totalSlides > 1 ? 'auto' : 'none',
+                        overflow: 'hidden',
+                        background: isImgSlide ? 'rgba(220,220,220,0.98)' : 'transparent',
+                        transition: 'background 0.2s ease',
+                        borderRadius: '0 0 6px 6px',
+                      }}>
+                        {/* Image overlay – covers the 3D canvas when on a photo slide */}
+                        {isImgSlide && imgUrl && (
+                          <div style={{
+                            position: 'absolute', inset: 0, zIndex: 2,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: 'transparent',
+                            animation: 'fadeIn 0.22s ease',
+                          }}>
+                            <img
+                              src={imgUrl}
+                              alt={selectedProduct.name}
+                              onClick={() => setZoomedImage(imgUrl)}
+                              style={{
+                                maxWidth: '78%',
+                                maxHeight: '78%',
+                                objectFit: 'contain',
+                                borderRadius: 8,
+                                boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                                userSelect: 'none',
+                                pointerEvents: 'auto',
+                                cursor: 'pointer',
+                              }}
+                            />
                           </div>
-                          <button className="more-info-btn" style={{ position: 'relative', top: 0, left: 0, alignSelf: 'flex-start' }} onClick={() => setSheetVisible(true)}>
-                            MORE INFORMATIONS +
-                          </button>
-                       </div>
+                        )}
 
-                       {/* Dedicated Space for 3D model */}
-                       <div style={{ flex: 1, pointerEvents: 'none' }} />
+                        {/* Transparent fill so 3D canvas is visible on slide 0 */}
+                        {!isImgSlide && <div style={{ position: 'absolute', inset: 0, zIndex: 1 }} />}
 
-                        {/* Size + Add to Cart Area */}
-                        <div style={{ marginTop: 'auto', padding: '0 30px 55px 30px', pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.1s' }} className={isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}>
-                           {selectedProduct.sizes?.length > 0 && (
-                              <div style={{ position: "relative", marginBottom: 14 }}>
-                                 <div
-                                    onClick={() => setSizeDropdownOpen(!sizeDropdownOpen)}
-                                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.08)" }}
-                                 >
-                                    <span style={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#333" }}>SIZE</span>
-                                    <span style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "#111", display: "flex", alignItems: "center", gap: 6 }}>
-                                       {selectedSize || selectedProduct.sizes[0]}
-                                       <span style={{ fontSize: 7, opacity: 0.5, transition: "transform 0.2s ease", transform: sizeDropdownOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
-                                    </span>
-                                 </div>
-                                 {sizeDropdownOpen && (
-                                    <div style={{ position: "absolute", bottom: "100%", right: 0, minWidth: 120, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: "4px", zIndex: 50, animation: "sizeDropIn 0.18s ease" }}>
-                                       {selectedProduct.sizes.map((s) => (
-                                          <div
-                                             key={s}
-                                             onClick={() => { setSelectedSize(s); setSizeDropdownOpen(false); }}
-                                             style={{
-                                                padding: "9px 16px",
-                                                fontSize: 11,
-                                                fontWeight: (selectedSize || selectedProduct.sizes[0]) === s ? 800 : 500,
-                                                textTransform: "uppercase",
-                                                letterSpacing: 0.5,
-                                                color: (selectedSize || selectedProduct.sizes[0]) === s ? "#111" : "#666",
-                                                cursor: "pointer",
-                                                borderRadius: 8,
-                                                transition: "background 0.12s ease, color 0.12s ease",
-                                                background: (selectedSize || selectedProduct.sizes[0]) === s ? "rgba(0,0,0,0.06)" : "transparent",
-                                             }}
-                                             onMouseEnter={(e) => { if ((selectedSize || selectedProduct.sizes[0]) !== s) e.currentTarget.style.background = "rgba(0,0,0,0.03)"; }}
-                                             onMouseLeave={(e) => { if ((selectedSize || selectedProduct.sizes[0]) !== s) e.currentTarget.style.background = "transparent"; }}
-                                          >
-                                             {s}
-                                          </div>
-                                       ))}
-                                    </div>
-                                 )}
-                              </div>
-                           )}
-                           <button className="hero-add-btn" onClick={() => {
-                              if (selectedProduct.sizes?.length > 0 && !selectedSize) {
-                                 setSelectedSize(selectedProduct.sizes[0]);
-                              }
-                              setTimeout(() => handleAddToCart(), 0);
-                           }}>
-                              Add to cart - {formatPrice(selectedProduct.price)}
-                           </button>
+                        {/* Left / Right arrow buttons */}
+                        {totalSlides > 1 && (
+                          <>
+                            <button
+                              onClick={() => {
+                                const prev = (selectedMediaIndex - 1 + totalSlides) % totalSlides;
+                                setSelectedMediaIndex(prev);
+                                setSheetTab(prev === 0 && has3d ? '3d' : '2d');
+                              }}
+                              style={{
+                                position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+                                zIndex: 11, background: 'rgba(255,255,255,0.85)', border: 'none',
+                                borderRadius: '50%', width: 32, height: 32, display: 'flex',
+                                alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.14)', fontSize: 14,
+                                transition: 'background 0.15s ease', color: '#111',
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,1)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.85)'}
+                              aria-label="Previous"
+                            >‹</button>
+                            <button
+                              onClick={() => {
+                                const next = (selectedMediaIndex + 1) % totalSlides;
+                                setSelectedMediaIndex(next);
+                                setSheetTab(next === 0 && has3d ? '3d' : '2d');
+                              }}
+                              style={{
+                                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                                zIndex: 11, background: 'rgba(255,255,255,0.85)', border: 'none',
+                                borderRadius: '50%', width: 32, height: 32, display: 'flex',
+                                alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.14)', fontSize: 14,
+                                transition: 'background 0.15s ease', color: '#111',
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,1)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.85)'}
+                              aria-label="Next"
+                            >›</button>
+                          </>
+                        )}
+
+                        {/* Dot Indicators (only shown when multiple slides exist) */}
+                        {totalSlides > 1 && (
+                          <div style={{
+                            position: 'absolute', bottom: 14, left: 0, right: 0, zIndex: 10,
+                            display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 7,
+                          }}>
+                            {slides.map((_, i) => (
+                              <button
+                                key={i}
+                                onClick={() => {
+                                  setSelectedMediaIndex(i);
+                                  // hide 3D model when on image slide, show on 3D slide
+                                  setSheetTab(i === 0 && has3d ? '3d' : '2d');
+                                }}
+                                style={{
+                                  width: selectedMediaIndex === i ? 20 : 7,
+                                  height: 7,
+                                  borderRadius: 999,
+                                  background: selectedMediaIndex === i ? '#111' : 'rgba(0,0,0,0.25)',
+                                  border: 'none',
+                                  padding: 0,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                                  flexShrink: 0,
+                                }}
+                                aria-label={i === 0 && has3d ? '3D Model' : `Image ${i}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Size + Add to Cart Area */}
+                  <div style={{ marginTop: 'auto', padding: '0 30px 55px 30px', pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.1s' }} className={isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}>
+                    {selectedProduct.sizes?.length > 0 && (
+                      <div style={{ position: "relative", marginBottom: 14 }}>
+                        <div
+                          onClick={() => setSizeDropdownOpen(!sizeDropdownOpen)}
+                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.08)" }}
+                        >
+                          <span style={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#333" }}>SIZE</span>
+                          <span style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "#111", display: "flex", alignItems: "center", gap: 6 }}>
+                            {selectedSize || selectedProduct.sizes[0]}
+                            <span style={{ fontSize: 7, opacity: 0.5, transition: "transform 0.2s ease", transform: sizeDropdownOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+                          </span>
                         </div>
-                    </>
-                 ) : null}
-                 
-                 {(sheetVisible && !isClosingSheet) ? (
-                    <>
-                       <div className={`hero-details-content ${isClosingSheet ? 'animate-slide-down' : (slideDir === 'none' ? 'animate-slide-up' : '')}`} style={{ pointerEvents: 'auto', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 15, position: 'absolute', top: 30, left: 30 }}>
-                             <span style={{ fontWeight: 800, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, color: '#111' }}>{selectedProduct.name}</span>
-                             <span style={{ background: '#e0e0e0', color: '#666', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4, letterSpacing: 0.5 }}>MERCH</span>
+                        {sizeDropdownOpen && (
+                          <div style={{ position: "absolute", bottom: "100%", right: 0, minWidth: 120, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: "4px", zIndex: 50, animation: "sizeDropIn 0.18s ease" }}>
+                            {selectedProduct.sizes.map((s) => (
+                              <div
+                                key={s}
+                                onClick={() => { setSelectedSize(s); setSizeDropdownOpen(false); }}
+                                style={{
+                                  padding: "9px 16px",
+                                  fontSize: 11,
+                                  fontWeight: (selectedSize || selectedProduct.sizes[0]) === s ? 800 : 500,
+                                  textTransform: "uppercase",
+                                  letterSpacing: 0.5,
+                                  color: (selectedSize || selectedProduct.sizes[0]) === s ? "#111" : "#666",
+                                  cursor: "pointer",
+                                  borderRadius: 8,
+                                  transition: "background 0.12s ease, color 0.12s ease",
+                                  background: (selectedSize || selectedProduct.sizes[0]) === s ? "rgba(0,0,0,0.06)" : "transparent",
+                                }}
+                                onMouseEnter={(e) => { if ((selectedSize || selectedProduct.sizes[0]) !== s) e.currentTarget.style.background = "rgba(0,0,0,0.03)"; }}
+                                onMouseLeave={(e) => { if ((selectedSize || selectedProduct.sizes[0]) !== s) e.currentTarget.style.background = "transparent"; }}
+                              >
+                                {s}
+                              </div>
+                            ))}
                           </div>
-                          
-                          <button onClick={handleCloseSheet} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#111', padding: 0, lineHeight: 1, position: 'absolute', top: 30, right: 30 }}>
-                            —
-                          </button>
+                        )}
+                      </div>
+                    )}
+                    <button className="hero-add-btn" onClick={() => {
+                      if (selectedProduct.sizes?.length > 0 && !selectedSize) {
+                        setSelectedSize(selectedProduct.sizes[0]);
+                      }
+                      setTimeout(() => handleAddToCart(), 0);
+                    }}>
+                      Add to cart - {formatPrice(selectedProduct.price)}
+                    </button>
+                  </div>
+                </>
+              ) : null}
 
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '80px 30px' }}>
-                             <div className="sheet-desc" style={{ textAlign: 'left', color: '#ffffff', fontWeight: 500, fontSize: 14 }}>
-                                {selectedProduct.desc ? (
-                                   selectedProduct.desc.split('\n').map((line, i) => (
-                                      <div key={i} style={{ marginBottom: 6, fontSize: 15, color: '#111', letterSpacing: 0.2 }}>{line}</div>
-                                   ))
-                                ) : (
-                                   <div style={{ fontSize: 14, color: '#444' }}>No description available.</div>
-                                )}
-                             </div>
+              {(sheetVisible && !isClosingSheet) ? (
+                <>
+                  <div className={`hero-details-content ${isClosingSheet ? 'animate-slide-down' : (slideDir === 'none' ? 'animate-slide-up' : '')}`} style={{ pointerEvents: 'auto', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 15, position: 'absolute', top: 30, left: 30 }}>
+                      <span style={{ fontWeight: 800, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, color: '#111' }}>{selectedProduct.name}</span>
+                      <span style={{ background: '#e0e0e0', color: '#666', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4, letterSpacing: 0.5 }}>MERCH</span>
+                    </div>
+
+                    <button onClick={handleCloseSheet} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#111', padding: 0, lineHeight: 1, position: 'absolute', top: 30, right: 30 }}>
+                      —
+                    </button>
+
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '80px 30px' }}>
+                      <div className="sheet-desc" style={{ textAlign: 'left', color: '#ffffff', fontWeight: 500, fontSize: 14 }}>
+                        {selectedProduct.desc ? (
+                          selectedProduct.desc.split('\n').map((line, i) => (
+                            <div key={i} style={{ marginBottom: 6, fontSize: 15, color: '#111', letterSpacing: 0.2 }}>{line}</div>
+                          ))
+                        ) : (
+                          <div style={{ fontSize: 14, color: '#444' }}>No description available.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 'auto', padding: '0 30px 40px 30px' }}>
+                      {selectedProduct.sizes?.length > 0 && (
+                        <div style={{ position: "relative", marginBottom: 15 }}>
+                          <div
+                            onClick={() => setSizeDropdownOpen(!sizeDropdownOpen)}
+                            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.08)" }}
+                          >
+                            <span style={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#333" }}>SIZE</span>
+                            <span style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "#111", display: "flex", alignItems: "center", gap: 6 }}>
+                              {selectedSize || selectedProduct.sizes[0]}
+                              <span style={{ fontSize: 7, opacity: 0.5, transition: "transform 0.2s ease", transform: sizeDropdownOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+                            </span>
                           </div>
+                          {sizeDropdownOpen && (
+                            <div style={{ position: "absolute", bottom: "100%", right: 0, minWidth: 120, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: "4px", zIndex: 50, animation: "sizeDropIn 0.18s ease" }}>
+                              {selectedProduct.sizes.map((s) => (
+                                <div
+                                  key={s}
+                                  onClick={() => { setSelectedSize(s); setSizeDropdownOpen(false); }}
+                                  style={{
+                                    padding: "9px 16px",
+                                    fontSize: 11,
+                                    fontWeight: (selectedSize || selectedProduct.sizes[0]) === s ? 800 : 500,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 0.5,
+                                    color: (selectedSize || selectedProduct.sizes[0]) === s ? "#111" : "#666",
+                                    cursor: "pointer",
+                                    borderRadius: 8,
+                                    transition: "background 0.12s ease, color 0.12s ease",
+                                    background: (selectedSize || selectedProduct.sizes[0]) === s ? "rgba(0,0,0,0.06)" : "transparent",
+                                  }}
+                                  onMouseEnter={(e) => { if ((selectedSize || selectedProduct.sizes[0]) !== s) e.currentTarget.style.background = "rgba(0,0,0,0.03)"; }}
+                                  onMouseLeave={(e) => { if ((selectedSize || selectedProduct.sizes[0]) !== s) e.currentTarget.style.background = "transparent"; }}
+                                >
+                                  {s}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                           <div style={{ marginTop: 'auto', padding: '0 30px 40px 30px' }}>
-                              {selectedProduct.sizes?.length > 0 && (
-                                 <div style={{ position: "relative", marginBottom: 15 }}>
-                                    <div
-                                       onClick={() => setSizeDropdownOpen(!sizeDropdownOpen)}
-                                       style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.08)" }}
-                                    >
-                                       <span style={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#333" }}>SIZE</span>
-                                       <span style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "#111", display: "flex", alignItems: "center", gap: 6 }}>
-                                          {selectedSize || selectedProduct.sizes[0]}
-                                          <span style={{ fontSize: 7, opacity: 0.5, transition: "transform 0.2s ease", transform: sizeDropdownOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
-                                       </span>
-                                    </div>
-                                    {sizeDropdownOpen && (
-                                       <div style={{ position: "absolute", bottom: "100%", right: 0, minWidth: 120, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: "4px", zIndex: 50, animation: "sizeDropIn 0.18s ease" }}>
-                                          {selectedProduct.sizes.map((s) => (
-                                             <div
-                                                key={s}
-                                                onClick={() => { setSelectedSize(s); setSizeDropdownOpen(false); }}
-                                                style={{
-                                                   padding: "9px 16px",
-                                                   fontSize: 11,
-                                                   fontWeight: (selectedSize || selectedProduct.sizes[0]) === s ? 800 : 500,
-                                                   textTransform: "uppercase",
-                                                   letterSpacing: 0.5,
-                                                   color: (selectedSize || selectedProduct.sizes[0]) === s ? "#111" : "#666",
-                                                   cursor: "pointer",
-                                                   borderRadius: 8,
-                                                   transition: "background 0.12s ease, color 0.12s ease",
-                                                   background: (selectedSize || selectedProduct.sizes[0]) === s ? "rgba(0,0,0,0.06)" : "transparent",
-                                                }}
-                                                onMouseEnter={(e) => { if ((selectedSize || selectedProduct.sizes[0]) !== s) e.currentTarget.style.background = "rgba(0,0,0,0.03)"; }}
-                                                onMouseLeave={(e) => { if ((selectedSize || selectedProduct.sizes[0]) !== s) e.currentTarget.style.background = "transparent"; }}
-                                             >
-                                                {s}
-                                             </div>
-                                          ))}
-                                       </div>
-                                    )}
-                                 </div>
-                              )}
-                              
-                              <button className="hero-add-btn" style={{ pointerEvents: 'auto' }} onClick={() => {
-                                 if (selectedProduct.sizes?.length > 0 && !selectedSize) {
-                                    setSelectedSize(selectedProduct.sizes[0]);
-                                 }
-                                 setTimeout(() => handleAddToCart(), 0);
-                              }}>
-                                 Add to cart - {formatPrice(selectedProduct.price)}
-                              </button>
-                           </div>
-                       </div>
-                    </>
-                 ) : null}
+                      <button className="hero-add-btn" style={{ pointerEvents: 'auto' }} onClick={() => {
+                        if (selectedProduct.sizes?.length > 0 && !selectedSize) {
+                          setSelectedSize(selectedProduct.sizes[0]);
+                        }
+                        setTimeout(() => handleAddToCart(), 0);
+                      }}>
+                        Add to cart - {formatPrice(selectedProduct.price)}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            {/* Damso Pill Controller Wrapper - Anchored cleanly OUTSIDE and BELOW the modal */}
+            <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 1000 }}>
+              <div className={`damso-pill-controller ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.2s' }}>
+                <button className="pill-btn" onClick={() => {
+                  setSlideDir('prev');
+                  const w = getCurrentItemWidth();
+                  const raw = Math.round(offsetRef.current / w);
+                  setSnapTarget(raw - 1);
+                  const newIdx = (((raw - 1) % products.length) + products.length) % products.length;
+                  if (products[newIdx]) openProductView(products[newIdx]);
+                }}>◀◀</button>
+
+                <button className="pill-btn pill-close-btn" onClick={handleCloseHero}>✕</button>
+
+                <button className="pill-btn" onClick={() => {
+                  setSlideDir('next');
+                  const w = getCurrentItemWidth();
+                  const raw = Math.round(offsetRef.current / w);
+                  setSnapTarget(raw + 1);
+                  const newIdx = (((raw + 1) % products.length) + products.length) % products.length;
+                  if (products[newIdx]) openProductView(products[newIdx]);
+                }}>▶▶</button>
               </div>
+            </div>
 
-              {/* Damso Pill Controller Wrapper - Anchored cleanly OUTSIDE and BELOW the modal */}
-              <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 1000 }}>
-                 <div className={`damso-pill-controller ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.2s' }}>
-                    <button className="pill-btn" onClick={() => {
-                      setSlideDir('prev');
-                      const w = getCurrentItemWidth();
-                      const raw = Math.round(offsetRef.current / w);
-                      setSnapTarget(raw - 1);
-                      const newIdx = (((raw - 1) % products.length) + products.length) % products.length;
-                      if (products[newIdx]) openProductView(products[newIdx]);
-                    }}>◀◀</button>
-                    
-                    <button className="pill-btn pill-close-btn" onClick={handleCloseHero}>✕</button>
-
-                    <button className="pill-btn" onClick={() => {
-                      setSlideDir('next');
-                      const w = getCurrentItemWidth();
-                      const raw = Math.round(offsetRef.current / w);
-                      setSnapTarget(raw + 1);
-                      const newIdx = (((raw + 1) % products.length) + products.length) % products.length;
-                      if (products[newIdx]) openProductView(products[newIdx]);
-                    }}>▶▶</button>
-                 </div>
-              </div>
-
-           </div>
+          </div>
         </div>
       )}
 
+      {/* ─── FULLSCREEN IMAGE LIGHTBOX ─── */}
+      {zoomedImage && (() => {
+        // Close on ESC key
+        const handleKey = (e) => { if (e.key === 'Escape') setZoomedImage(null); };
+        return (
+          <div
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: 'rgba(0,0,0,0.92)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              animation: 'fadeIn 0.18s ease',
+              cursor: 'zoom-out',
+            }}
+            onClick={() => setZoomedImage(null)}
+            onKeyDown={handleKey}
+            tabIndex={0}
+            ref={el => el && el.focus()}
+          >
+            {/* Close button */}
+            <button
+              onClick={e => { e.stopPropagation(); setZoomedImage(null); }}
+              style={{
+                position: 'absolute', top: 20, right: 20,
+                background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
+                color: '#fff', borderRadius: '50%',
+                width: 44, height: 44,
+                fontSize: 20, lineHeight: '1', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 10000,
+                transition: 'background 0.15s',
+                backdropFilter: 'blur(8px)',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+              aria-label="Close image"
+            >✕</button>
+
+            {/* The full-size image — stop click so overlay close still works */}
+            <img
+              src={zoomedImage}
+              alt="Product"
+              onClick={e => e.stopPropagation()}
+              style={{
+                maxWidth: '92vw',
+                maxHeight: '92vh',
+                objectFit: 'contain',
+                borderRadius: 6,
+                boxShadow: '0 24px 80px rgba(0,0,0,0.7)',
+                cursor: 'default',
+                animation: 'zoomIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+              }}
+            />
+          </div>
+        );
+      })()}
 
     </div>
   );
@@ -1054,7 +1242,7 @@ function WorldApp() {
       window.dispatchEvent(
         new CustomEvent('worldCarouselStep', { detail: { dir: direction } })
       );
-    } catch {}
+    } catch { }
 
     stepBy(direction);
   }, [stepBy]);
@@ -1154,7 +1342,7 @@ function WorldApp() {
   const handleCenterButtonClick = () => {
     try {
       window.dispatchEvent(new CustomEvent('worldCenterClick'));
-    } catch {}
+    } catch { }
   };
 
   if (loading) {

@@ -309,6 +309,17 @@ button {
   }
 }
 
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* ==================== BOTTOM SHEET ==================== */
 
 .bottom-sheet {

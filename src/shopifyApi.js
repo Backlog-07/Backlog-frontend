@@ -33,8 +33,7 @@ async function shopifyGraphQL(query, variables = {}) {
   }
   if (!res.ok) {
     throw new Error(
-      `Shopify request failed (${res.status}). ${
-        json?.errors ? JSON.stringify(json.errors) : text || res.statusText
+      `Shopify request failed (${res.status}). ${json?.errors ? JSON.stringify(json.errors) : text || res.statusText
       }`
     );
   }
@@ -51,7 +50,7 @@ export async function fetchProducts() {
           id
           title
           description
-          images(first: 1) { edges { node { url } } }
+          images(first: 5) { edges { node { url } } }
           variants(first: 10) {
             edges {
               node {
@@ -131,4 +130,36 @@ export async function removeCartLine(cartId, lineId) {
   const variables = { cartId, lineIds: [lineId] };
   const data = await shopifyGraphQL(query, variables);
   return data.cartLinesRemove.cart;
+}
+
+/**
+ * Fetch World Gallery images from Shopify Metaobjects (Storefront API).
+ *
+ * Setup in Shopify Admin → Content → Metaobjects → Add definition:
+ *   Name: "World Gallery Image"  |  API handle: "world_gallery_image"
+ *   Fields:
+ *     - image_url  (Single line text) ← full https:// URL (Cloudflare R2 or Shopify CDN)
+ *     - caption    (Single line text) ← optional label
+ *
+ * Then click "Add entry" for each image and paste its full URL into image_url.
+ * Returns: Array of { id, imageUrl, caption }
+ */
+export async function fetchWorldGallery() {
+  const query = `{
+    metaobjects(type: "world_image", first: 100) {
+      edges {
+        node {
+          id
+          fields { key value }
+        }
+      }
+    }
+  }`;
+  const data = await shopifyGraphQL(query);
+  const edges = data?.metaobjects?.edges || [];
+  return edges.map(({ node }) => {
+    const m = {};
+    (node.fields || []).forEach(f => { m[f.key] = f.value; });
+    return { id: node.id, imageUrl: m['cloudflare_link'] || null, caption: '' };
+  }).filter(img => !!img.imageUrl);
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import "./checkout.css";
 
-const API_BASE = (process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000')).replace(/\/$/, "");
+const API_BASE = (process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? '' : `http://${window.location.hostname}:4000`)).replace(/\/$/, "");
 const DEFAULT_SHIPPING_CHARGE = 99;
 
 function loadRazorpayScript() {

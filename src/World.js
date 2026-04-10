@@ -1,22 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { fetchWorldGallery } from "./shopifyApi";
 
-const API_BASE = (process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000')).replace(/\/$/, "");
 const STRIP_VISIBLE_EACH_SIDE = 15;
-
-function resolveImageUrl(imageUrl) {
-  if (!imageUrl) return null;
-  if (imageUrl.startsWith("http")) return imageUrl;
-
-  // If it's a local upload url, prepend API_BASE
-  if (imageUrl.startsWith("/uploads")) {
-    return `${API_BASE}${imageUrl}`;
-  }
-
-  // Otherwise, it's an object key from Cloudflare R2
-  const R2_BASE = "https://pub-ca1e1931d1d24140b20bf79db813ae8c.r2.dev";
-  const clean = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-  return `${R2_BASE}${clean}`;
-}
 
 export default function World() {
   const [worldImages, setWorldImages] = useState([]);
@@ -30,7 +15,7 @@ export default function World() {
   const images = useMemo(() => {
     return (Array.isArray(worldImages) ? worldImages : []).map((img) => ({
       ...img,
-      _src: resolveImageUrl(img.imageUrl),
+      _src: img.imageUrl,
     }));
   }, [worldImages]);
 
@@ -40,18 +25,10 @@ export default function World() {
     const load = async () => {
       try {
         setLoadingImages(true);
-        const res = await fetch(`${API_BASE}/api/world-images`);
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = await res.json();
-        const arr = Array.isArray(data) ? data : [];
-        arr.sort((a, b) => {
-          const at = a?.createdAt ? Date.parse(a.createdAt) : 0;
-          const bt = b?.createdAt ? Date.parse(b.createdAt) : 0;
-          return at - bt;
-        });
-        setWorldImages(arr);
+        const items = await fetchWorldGallery();
+        setWorldImages(items);
       } catch (e) {
-        console.error("Failed to load world images", e);
+        console.error("Failed to load world images from Shopify Metaobjects", e);
         setWorldImages([]);
       } finally {
         setLoadingImages(false);
