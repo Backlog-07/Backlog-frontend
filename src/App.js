@@ -10,7 +10,7 @@ import World from "./World";
 import cartIcon from "./whitecart.png";
 import { getCarouselItemWidth } from "./carouselLayout";
 
-const API_BASE = (process.env.REACT_APP_API_URL || "http://localhost:4000").replace(/\/$/, "");
+const API_BASE = (process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000')).replace(/\/$/, "");
 const getItemWidth = () => getCarouselItemWidth();
 const DEFAULT_PRODUCTS = [];
 const SHOPIFY_CART_STORAGE_KEY = "shopify-cart";
