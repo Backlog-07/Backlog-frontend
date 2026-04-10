@@ -17,7 +17,7 @@ function ensureBootLoader() {
   el.innerHTML = `
     <div class="boot-inner">
       <div class="boot-brand">
-        <span class="boot-text"><span class="boot-reveal">backlogstore</span></span>
+        <span class="boot-text"><span class="boot-reveal">Backlog</span></span>
       </div>
       <div class="boot-line" aria-hidden="true"></div>
       <div class="boot-sub">Loading</div>

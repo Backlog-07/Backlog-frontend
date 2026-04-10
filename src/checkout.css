@@ -13,7 +13,7 @@ html, body {
 }
 
 body {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Manuka", "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   background: linear-gradient(135deg, #f9f9f9 0%, #e0e0e0 100%);
   color: #000;
   overflow-x: hidden;

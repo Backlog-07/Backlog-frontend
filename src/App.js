@@ -13,6 +13,7 @@ import { getCarouselItemWidth } from "./carouselLayout";
 const API_BASE = (process.env.REACT_APP_API_URL || "http://localhost:4000").replace(/\/$/, "");
 const getItemWidth = () => getCarouselItemWidth();
 const DEFAULT_PRODUCTS = [];
+const SHOPIFY_CART_STORAGE_KEY = "shopify-cart";
 const normalizeBackendProduct = (p) => ({
   ...p,
   id: p.id,
@@ -48,6 +49,117 @@ const formatPrice = (value) => {
   return `₹${value}`;
 };
 
+const navigateTo = (path) => {
+  if (window.location.pathname === path) return;
+  window.history.pushState({}, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+};
+
+const readStoredCart = () => {
+  try {
+    const raw = localStorage.getItem(SHOPIFY_CART_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredCart = (cart) => {
+  try {
+    if (cart) {
+      localStorage.setItem(SHOPIFY_CART_STORAGE_KEY, JSON.stringify(cart));
+    } else {
+      localStorage.removeItem(SHOPIFY_CART_STORAGE_KEY);
+    }
+  } catch {}
+};
+
+function SiteMenu({ activePage, menuOpen, setMenuOpen, onCartOpen, cartItemCount, style }) {
+  return (
+    <nav
+      className={`expanding-menu ${menuOpen ? "open" : ""}`}
+      onClick={(e) => e.stopPropagation()}
+      style={style}
+    >
+      <div className="menu-tabs">
+        <button
+          className={`menu-tab ${activePage === "shop" ? "active" : ""}`}
+          onClick={() => {
+            setMenuOpen(false);
+            navigateTo("/");
+          }}
+        >
+          SHOP
+        </button>
+        <button
+          className={`menu-tab ${activePage === "world" ? "active" : ""}`}
+          onClick={() => {
+            setMenuOpen(false);
+            navigateTo("/world");
+          }}
+        >
+          WORLD
+        </button>
+        <button
+          className={`menu-tab ${activePage === "about" ? "active" : ""}`}
+          onClick={() => {
+            setMenuOpen(false);
+            navigateTo("/about");
+          }}
+        >
+          ABOUT
+        </button>
+        <button
+          className="menu-tab cart-tab"
+          onClick={() => {
+            onCartOpen();
+            setMenuOpen(false);
+          }}
+        >
+          <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            {cartIcon ? (
+              <img
+                src={cartIcon}
+                alt="Cart"
+                style={{ width: 22, height: 22 }}
+              />
+            ) : (
+              "CART"
+            )}
+            {cartItemCount > 0 && (
+              <span
+                aria-label={`${cartItemCount} items in cart`}
+                style={{
+                  position: "absolute",
+                  top: -8,
+                  right: -10,
+                  minWidth: 18,
+                  height: 18,
+                  padding: "0 5px",
+                  borderRadius: 999,
+                  background: "#ff2d55",
+                  color: "#fff",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  lineHeight: "18px",
+                  textAlign: "center",
+                  border: "2px solid rgba(0,0,0,0.75)",
+                  boxSizing: "border-box",
+                  pointerEvents: "none",
+                }}
+              >
+                {cartItemCount > 99 ? "99+" : cartItemCount}
+              </span>
+            )}
+          </span>
+        </button>
+      </div>
+    </nav>
+  );
+}
+
 function MainApp() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [offset, setOffset] = useState(0);
@@ -67,7 +179,7 @@ function MainApp() {
   const [sheetTab, setSheetTab] = useState("3d"); // "2d" or "3d"
 
   // Shopify cart state
-  const [cart, setCart] = useState(null); // { id, lines, checkoutUrl }
+  const [cart, setCart] = useState(() => readStoredCart()); // { id, lines, checkoutUrl }
   const cartItemCount = cart?.lines?.edges?.reduce((sum, edge) => sum + (edge.node.quantity || 0), 0) || 0;
 
   const scrollTimeoutRef = useRef(null);
@@ -160,6 +272,10 @@ function MainApp() {
       stopInertial();
     };
   }, [stopInertial]);
+
+  useEffect(() => {
+    writeStoredCart(cart);
+  }, [cart]);
 
   // Replace with dynamic-width driven calculations (Shop page only)
   const getCurrentItemWidth = () => {
@@ -495,7 +611,7 @@ function MainApp() {
       {/* Header */}
       {!selectedProduct && (
         <header className="header">
-          <div className="logo">backlogstore</div>
+          <div className="logo">Backlog</div>
           <div className="nav">
             <span className="nav-text">
               {products[getActiveIndexFromOffset(offsetRef.current)]?.name || ""}
@@ -506,63 +622,13 @@ function MainApp() {
 
       {/* Expanding Menu */}
       {!selectedProduct && (
-        <nav
-          className={`expanding-menu ${menuOpen ? "open" : ""}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="menu-tabs">
-            <button className="menu-tab active">SHOP</button>
-            <button className="menu-tab" onClick={() => {
-              window.history.pushState({}, "", "/world");
-              setMenuOpen(false);
-              window.location.href = "/world";
-            }}>WORLD</button>
-            <button
-              className="menu-tab cart-tab"
-              onClick={() => {
-                setCartOpen(true);
-                setMenuOpen(false);
-              }}
-            >
-              <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                {cartIcon ? (
-                  <img
-                    src={cartIcon}
-                    alt="Cart"
-                    style={{ width: 22, height: 22 }}
-                  />
-                ) : (
-                  "CART"
-                )}
-                {cartItemCount > 0 && (
-                  <span
-                    aria-label={`${cartItemCount} items in cart`}
-                    style={{
-                      position: 'absolute',
-                      top: -8,
-                      right: -10,
-                      minWidth: 18,
-                      height: 18,
-                      padding: '0 5px',
-                      borderRadius: 999,
-                      background: '#ff2d55',
-                      color: '#fff',
-                      fontSize: 11,
-                      fontWeight: 800,
-                      lineHeight: '18px',
-                      textAlign: 'center',
-                      border: '2px solid rgba(0,0,0,0.75)',
-                      boxSizing: 'border-box',
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    {cartItemCount > 99 ? '99+' : cartItemCount}
-                  </span>
-                )}
-              </span>
-            </button>
-          </div>
-        </nav>
+        <SiteMenu
+          activePage="shop"
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          onCartOpen={() => setCartOpen(true)}
+          cartItemCount={cartItemCount}
+        />
       )}
 
       <CartPanel
@@ -875,6 +941,9 @@ export default function App() {
   if (currentPage === "/world") {
     return <WorldApp />;
   }
+  if (currentPage === "/about") {
+    return <AboutApp />;
+  }
 
   return <MainApp />;
 }
@@ -896,18 +965,8 @@ function WorldApp() {
     return () => window.removeEventListener('worldGalleryState', onGalleryState);
   }, []);
 
-  const [cart, setCart] = useState(() => {
-    try {
-      const raw = localStorage.getItem("cart");
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const cartItemCount = (cart || []).reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+  const [cart, setCart] = useState(() => readStoredCart());
+  const cartItemCount = cart?.lines?.edges?.reduce((sum, edge) => sum + (edge.node.quantity || 0), 0) || 0;
 
   const snapAnimRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
@@ -1000,9 +1059,7 @@ function WorldApp() {
   // (activeIndex tracking removed)
 
   useEffect(() => {
-    try {
-      localStorage.setItem("cart", JSON.stringify(cart));
-    } catch {}
+    writeStoredCart(cart);
   }, [cart]);
 
   useEffect(() => {
@@ -1105,7 +1162,7 @@ function WorldApp() {
     <div className="app">
       {/* Header */}
       <header className="header">
-        <div className="logo">backlogstore</div>
+        <div className="logo">Backlog</div>
         <div className="nav">
           <span className="nav-text">
             {/* World page: keep header clean (no shifting product name) */}
@@ -1115,62 +1172,14 @@ function WorldApp() {
       </header>
 
       {/* Expanding Menu */}
-      <nav
-        className={`expanding-menu ${menuOpen ? "open" : ""}`}
-        onClick={(e) => e.stopPropagation()}
-        style={{ opacity: worldGalleryOpen ? 0 : 1, pointerEvents: worldGalleryOpen ? 'none' : 'auto', transition: 'opacity 0.3s ease' }}
-      >
-        <div className="menu-tabs">
-          <button className="menu-tab" onClick={() => {
-            window.location.href = "/";
-          }}>SHOP</button>
-          <button className="menu-tab active">WORLD</button>
-          <button
-            className="menu-tab cart-tab"
-            onClick={() => {
-              setCartOpen(true);
-              setMenuOpen(false);
-            }}
-          >
-            <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              {cartIcon ? (
-                <img
-                  src={cartIcon}
-                  alt="Cart"
-                  style={{ width: 22, height: 22 }}
-                />
-              ) : (
-                "CART"
-              )}
-              {cartItemCount > 0 && (
-                <span
-                  aria-label={`${cartItemCount} items in cart`}
-                  style={{
-                    position: 'absolute',
-                    top: -8,
-                    right: -10,
-                    minWidth: 18,
-                    height: 18,
-                    padding: '0 5px',
-                    borderRadius: 999,
-                    background: '#ff2d55',
-                    color: '#fff',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    lineHeight: '18px',
-                    textAlign: 'center',
-                    border: '2px solid rgba(0,0,0,0.75)',
-                    boxSizing: 'border-box',
-                    pointerEvents: 'none',
-                  }}
-                >
-                  {cartItemCount > 99 ? '99+' : cartItemCount}
-                </span>
-              )}
-            </span>
-          </button>
-        </div>
-      </nav>
+      <SiteMenu
+        activePage="world"
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        onCartOpen={() => setCartOpen(true)}
+        cartItemCount={cartItemCount}
+        style={{ opacity: worldGalleryOpen ? 0 : 1, pointerEvents: worldGalleryOpen ? "none" : "auto", transition: "opacity 0.3s ease" }}
+      />
 
       <CartPanel
         open={cartOpen}
@@ -1196,6 +1205,103 @@ function WorldApp() {
       </div>
 
       {/* World page bottom sheet removed */}
+    </div>
+  );
+}
+
+function AboutApp() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [cart, setCart] = useState(() => readStoredCart());
+  const cartItemCount = cart?.lines?.edges?.reduce((sum, edge) => sum + (edge.node.quantity || 0), 0) || 0;
+
+  useEffect(() => {
+    writeStoredCart(cart);
+  }, [cart]);
+
+  const handleAboutArrowClick = useCallback((direction) => {
+    if (direction === 1) {
+      navigateTo("/");
+      return;
+    }
+    navigateTo("/world");
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        handleAboutArrowClick(1);
+      }
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        handleAboutArrowClick(-1);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleAboutArrowClick]);
+
+  return (
+    <div className="app about-page">
+      <header className="header">
+        <div className="logo">Backlog</div>
+        <div className="nav">
+          <span className="nav-text">Brand manifesto</span>
+        </div>
+      </header>
+
+      <SiteMenu
+        activePage="about"
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        onCartOpen={() => setCartOpen(true)}
+        cartItemCount={cartItemCount}
+      />
+
+      <CartPanel
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cart={cart}
+        setCart={setCart}
+      />
+
+      <main className="about-shell">
+        <section className="about-board">
+          <div className="about-map-center">
+            <div className="about-map-square">
+              <iframe
+                title="Backlog company location"
+                src="https://www.openstreetmap.org/export/embed.html?bbox=77.5795%2C12.9645%2C77.6075%2C12.9815&layer=mapnik&marker=12.9730%2C77.5938"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+              <div className="about-map-pin" aria-hidden="true" />
+            </div>
+          </div>
+
+          <div className="about-copy-row">
+            <div className="about-contact-block">
+              <div className="about-contact-grid">
+                <p className="about-contact-item">22 Mercer Block, Ashford Quarter</p>
+                <p className="about-contact-item">Bengaluru, Karnataka 560001</p>
+                <p className="about-contact-item">+91 98765 43210</p>
+                <p className="about-contact-item">contact@backlogstudio.co</p>
+                <p className="about-contact-item">Mon - Sat</p>
+                <p className="about-contact-item">10:00 AM - 7:00 PM</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <EnhancedJoystick
+        onArrowClick={handleAboutArrowClick}
+        onCenterClick={() => setMenuOpen((v) => !v)}
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+      />
     </div>
   );
 }

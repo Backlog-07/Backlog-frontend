@@ -14,11 +14,45 @@ function resolveImageUrl(imageUrl) {
 
 function resolveGlbUrl(glbUrl) {
   if (!glbUrl) return null;
-  if (glbUrl.startsWith("http")) return glbUrl;
-  if (glbUrl.startsWith("/uploads/")) return `${API_BASE}${glbUrl}`;
+  const raw = String(glbUrl).trim();
+  if (!raw) return null;
+
+  // Handle protocol-relative URLs from CMS fields.
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (raw.startsWith("http")) return raw;
+
+  // Handle CDN host values without scheme, e.g. "cdn.example.com/file.glb".
+  if (/^[a-z0-9.-]+\.[a-z]{2,}\//i.test(raw)) return `https://${raw}`;
+
+  if (raw.startsWith("/uploads/")) return `${API_BASE}${raw}`;
   // Support legacy/metafield values like "/models/t_shirt.glb" by serving via API host
-  if (glbUrl.startsWith("/models/")) return `${API_BASE}${glbUrl}`;
-  return glbUrl;
+  if (raw.startsWith("/models/")) return `${API_BASE}${raw}`;
+
+  if (raw.startsWith("uploads/")) return `${API_BASE}/${raw}`;
+  if (raw.startsWith("models/")) return `${API_BASE}/${raw}`;
+  return raw;
+}
+
+class ModelErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback ?? null;
+    return this.props.children;
+  }
 }
 
 function ImageTile({ imageUrl, active }) {
@@ -174,7 +208,12 @@ function EnhancedProduct({ position, active, onClick, product, index = 0, railY 
         }}
       >
         {hasGlb ? (
-          <ProductModel glbUrl={product.glbUrl} active={active} />
+          <ModelErrorBoundary
+            resetKey={product.glbUrl}
+            fallback={hasImage ? <ImageTile imageUrl={product.imageUrl} active={active} /> : <LegacyTile active={active} />}
+          >
+            <ProductModel glbUrl={product.glbUrl} active={active} />
+          </ModelErrorBoundary>
         ) : hasImage ? (
           <ImageTile imageUrl={product.imageUrl} active={active} />
         ) : (
