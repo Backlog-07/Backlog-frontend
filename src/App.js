@@ -28,7 +28,7 @@ const readProductCache = () => {
 };
 
 const writeProductCache = (data) => {
-  try { localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+  try { localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch { }
 };
 const normalizeShopifyProduct = (p) => ({
   id: p.id,
@@ -745,7 +745,7 @@ function MainApp() {
                       <span style={{ fontWeight: 800, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, color: '#111' }}>{selectedProduct.name}</span>
                       <span style={{ background: '#e0e0e0', color: '#666', fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 4, letterSpacing: 0.5 }}>MERCH</span>
                     </div>
-                  <button className="more-info-btn" style={{ position: 'relative', top: 0, left: 0, alignSelf: 'flex-start' }} onClick={() => setSheetVisible(true)}>
+                    <button className="more-info-btn" style={{ position: 'relative', top: 0, left: 0, alignSelf: 'flex-start' }} onClick={() => setSheetVisible(true)}>
                       MORE INFORMATIONS +
                     </button>
                   </div>
@@ -761,7 +761,7 @@ function MainApp() {
                     const imgUrl = isImgSlide ? slides[selectedMediaIndex] : null;
 
                     return (
-                      <div 
+                      <div
                         onTouchStart={e => { touchStartRef.current = e.targetTouches[0].clientX; }}
                         onTouchMove={e => { touchEndRef.current = e.targetTouches[0].clientX; }}
                         onTouchEnd={() => {
@@ -780,15 +780,15 @@ function MainApp() {
                           touchEndRef.current = 0;
                         }}
                         style={{
-                        flex: 1, position: 'relative',
-                        zIndex: 1,
-                        pointerEvents: totalSlides > 1 ? 'auto' : 'none',
-                        overflow: 'hidden',
-                        background: isImgSlide ? 'rgba(220,220,220,0.98)' : 'transparent',
-                        transition: 'background 0.2s ease',
-                        borderRadius: '0 0 6px 6px',
-                        paddingBottom: isMobileSizeLayout ? 36 : 0,
-                      }}>
+                          flex: 1, position: 'relative',
+                          zIndex: 1,
+                          pointerEvents: totalSlides > 1 ? 'auto' : 'none',
+                          overflow: 'hidden',
+                          background: isImgSlide ? 'rgba(220,220,220,0.98)' : 'transparent',
+                          transition: 'background 0.2s ease',
+                          borderRadius: '0 0 6px 6px',
+                          paddingBottom: isMobileSizeLayout ? 36 : 0,
+                        }}>
                         {/* Image overlay – covers the 3D canvas when on a photo slide */}
                         {isImgSlide && imgUrl && (
                           <div style={{
@@ -874,7 +874,7 @@ function MainApp() {
                   })()}
 
                   {/* Size + Add to Cart Area */}
-                    <div style={{ marginTop: 'auto', padding: '0 30px 55px 30px', pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.1s', position: 'relative', zIndex: 30 }} className={isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}>
+                  <div style={{ marginTop: 'auto', padding: '0 30px 55px 30px', pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.1s', position: 'relative', zIndex: 30 }} className={isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}>
                     {renderSizeSelector()}
                     <button className="hero-add-btn" onClick={() => {
                       if (selectedProduct.sizes?.length > 0 && !selectedSize) {
