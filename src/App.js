@@ -869,6 +869,7 @@ function MainApp() {
                         background: isImgSlide ? 'rgba(220,220,220,0.98)' : 'transparent',
                         transition: 'background 0.2s ease',
                         borderRadius: '0 0 6px 6px',
+                        paddingBottom: isMobileSizeLayout ? 18 : 0,
                       }}>
                         {/* Image overlay – covers the 3D canvas when on a photo slide */}
                         {isImgSlide && imgUrl && (
@@ -944,7 +945,7 @@ function MainApp() {
                         {/* Dot Indicators (only shown when multiple slides exist) */}
                         {totalSlides > 1 && (
                           <div style={{
-                            position: 'absolute', bottom: isMobileSizeLayout ? 18 : 14, left: 0, right: 0, zIndex: 4,
+                            position: 'absolute', bottom: isMobileSizeLayout ? 26 : 14, left: 0, right: 0, zIndex: 4,
                             display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 7,
                           }}>
                             {slides.map((_, i) => (
