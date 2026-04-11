@@ -45,21 +45,36 @@ function ensureBootLoader() {
   el.setAttribute('aria-label', 'Loading');
   el.setAttribute('role', 'status');
 
-  // Keep DOM minimal: one brand line + subtle animated rule.
   el.innerHTML = `
     <div class="boot-inner">
       <div class="boot-brand">
         <span class="boot-text"><span class="boot-reveal">Backlog</span></span>
       </div>
-      <div class="boot-line" aria-hidden="true"></div>
-      <div class="boot-sub">Loading</div>
+      <div class="boot-percent" aria-live="polite">0%</div>
+      <div class="boot-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+        <div class="boot-progress-fill"></div>
+      </div>
     </div>
   `;
 
-  // Force brand fg to black even if page theme changes.
   el.style.color = '#000';
-
   document.body.appendChild(el);
+
+  // Count 0 → 100 % over 950 ms (~60fps)
+  const percentEl = el.querySelector('.boot-percent');
+  const progressEl = el.querySelector('.boot-progress');
+  const DURATION = 950;
+  const INTERVAL = 16;
+  const steps = Math.round(DURATION / INTERVAL);
+  let step = 0;
+
+  const timer = setInterval(() => {
+    step++;
+    const pct = Math.min(Math.round((step / steps) * 100), 100);
+    if (percentEl) percentEl.textContent = pct + '%';
+    if (progressEl) progressEl.setAttribute('aria-valuenow', pct);
+    if (step >= steps) clearInterval(timer);
+  }, INTERVAL);
 }
 
 function hideBootLoader() {
@@ -67,7 +82,6 @@ function hideBootLoader() {
   const el = document.getElementById('app-boot-loader');
   if (!el) return;
 
-  // Kick transition.
   el.setAttribute('data-state', 'hidden');
 
   const remove = () => {
@@ -79,7 +93,7 @@ function hideBootLoader() {
 
   el.addEventListener('transitionend', remove);
   // Safety removal in case transitionend doesn't fire.
-  window.setTimeout(remove, 900);
+  window.setTimeout(remove, 600);
 }
 
 // Expose helpers so route-like pages can reuse the same loader.
@@ -98,13 +112,11 @@ root.render(
   </React.StrictMode>
 );
 
-// Hide loader once React has committed and the browser has a frame to paint.
+// Hide loader after the 1s progress animation completes.
 if (typeof window !== 'undefined') {
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => {
-      hideBootLoader();
-    });
-  });
+  window.setTimeout(() => {
+    hideBootLoader();
+  }, 1000);
 }
 
 // If you want to start measuring performance in your app, pass a function
