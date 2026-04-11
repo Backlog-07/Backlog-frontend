@@ -790,7 +790,8 @@ function MainApp() {
         <div style={{
           position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-          padding: '20px'
+          padding: isMobileSizeLayout ? '10px 20px 12px' : '20px',
+          transform: isMobileSizeLayout ? 'translateY(-16px)' : 'none',
         }}>
           <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ pointerEvents: 'none', display: (sheetVisible && !isClosingSheet) ? 'none' : 'flex' }} />
         </div>
@@ -813,7 +814,8 @@ function MainApp() {
         <div style={{
           position: 'fixed', inset: 0, zIndex: 10, pointerEvents: 'none',
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-          padding: '20px'
+          padding: isMobileSizeLayout ? '10px 20px 12px' : '20px',
+          transform: isMobileSizeLayout ? 'translateY(-16px)' : 'none',
         }}>
 
           <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{
@@ -1027,7 +1029,7 @@ function MainApp() {
             </div>
 
             {/* Damso Pill Controller Wrapper - Anchored cleanly OUTSIDE and BELOW the modal */}
-            <div style={{ position: 'absolute', top: 'calc(100% + 16px)', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 1000 }}>
+            <div style={{ position: 'absolute', top: isMobileSizeLayout ? 'calc(100% + 6px)' : 'calc(100% + 16px)', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 1000 }}>
               <div className={`damso-pill-controller ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.2s' }}>
                 <button className="pill-btn" onClick={() => {
                   setSlideDir('prev');
