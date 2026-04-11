@@ -528,12 +528,12 @@ export default function World() {
           .wld-center {
             width: 100vw;
             height: calc(var(--app-vh, 1vh) * 100);
-            transform: translateY(-50px);
+            transform: translateY(clamp(-60px, calc(var(--app-vh, 1vh) * -5.4), -46px));
           }
 
           .wld-card {
-            width: 60px;
-            height: 80px;
+            width: clamp(64px, 17vw, 76px);
+            height: clamp(86px, 22vw, 102px);
             border-radius: 8px;
           }
 
