@@ -44,6 +44,12 @@ function hideBootLoader() {
   // Removed boot loader as requested
 }
 
+// Proactive cleanup for HMR: instantly remove the old loader from document.body if it got stuck during hot-reloads.
+if (typeof document !== 'undefined') {
+  const stuckLoader = document.getElementById('app-boot-loader');
+  if (stuckLoader) stuckLoader.remove();
+}
+
 // Expose helpers so route-like pages can reuse the same loader.
 if (typeof window !== 'undefined') {
   ensureViewportVars();
