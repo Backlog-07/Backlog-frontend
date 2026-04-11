@@ -50,31 +50,13 @@ function ensureBootLoader() {
       <div class="boot-brand">
         <span class="boot-text"><span class="boot-reveal">Backlog</span></span>
       </div>
-      <div class="boot-percent" aria-live="polite">0%</div>
-      <div class="boot-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-        <div class="boot-progress-fill"></div>
-      </div>
+      <div class="boot-line" aria-hidden="true"></div>
+      <div class="boot-sub">Loading</div>
     </div>
   `;
 
   el.style.color = '#000';
   document.body.appendChild(el);
-
-  // Count 0 → 100 % over 950 ms (~60fps)
-  const percentEl = el.querySelector('.boot-percent');
-  const progressEl = el.querySelector('.boot-progress');
-  const DURATION = 950;
-  const INTERVAL = 16;
-  const steps = Math.round(DURATION / INTERVAL);
-  let step = 0;
-
-  const timer = setInterval(() => {
-    step++;
-    const pct = Math.min(Math.round((step / steps) * 100), 100);
-    if (percentEl) percentEl.textContent = pct + '%';
-    if (progressEl) progressEl.setAttribute('aria-valuenow', pct);
-    if (step >= steps) clearInterval(timer);
-  }, INTERVAL);
 }
 
 function hideBootLoader() {

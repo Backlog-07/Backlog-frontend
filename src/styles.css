@@ -1184,7 +1184,7 @@ canvas {
 /* ==================== IPOD CLICK WHEEL ==================== */
 .ipod-container {
   position: fixed;
-  bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -3512,6 +3512,7 @@ canvas {
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  overflow: visible;
 }
 
 .damso-pill-controller {

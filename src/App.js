@@ -793,7 +793,7 @@ function MainApp() {
           position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
           padding: isMobileSizeLayout ? '10px 20px 12px' : '20px',
-          transform: isMobileSizeLayout ? 'translateY(-28px)' : 'none',
+          transform: isMobileSizeLayout ? 'translateY(-48px)' : 'none',
         }}>
           <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ pointerEvents: 'none', display: (sheetVisible && !isClosingSheet) ? 'none' : 'flex' }} />
         </div>
@@ -817,7 +817,7 @@ function MainApp() {
           position: 'fixed', inset: 0, zIndex: 10, pointerEvents: 'none',
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
           padding: isMobileSizeLayout ? '10px 20px 12px' : '20px',
-          transform: isMobileSizeLayout ? 'translateY(-28px)' : 'none',
+          transform: isMobileSizeLayout ? 'translateY(-48px)' : 'none',
         }}>
 
           <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{
@@ -910,12 +910,14 @@ function MainApp() {
                                 setSheetTab(prev === 0 && has3d ? '3d' : '2d');
                               }}
                               style={{
-                                position: 'absolute', left: 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
-                                zIndex: 4, background: 'rgba(255,255,255,0.85)', border: 'none',
-                                borderRadius: '50%', width: 32, height: 32, display: 'flex',
+                                position: 'absolute', left: isMobileSizeLayout ? -16 : 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
+                                zIndex: 4, background: 'rgba(255,255,255,0.9)', border: 'none',
+                                borderRadius: '50%', width: isMobileSizeLayout ? 36 : 32, height: isMobileSizeLayout ? 36 : 32, display: 'flex',
                                 alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                                boxShadow: '0 2px 10px rgba(0,0,0,0.14)', fontSize: 14,
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.18)', fontSize: 14,
                                 transition: 'background 0.15s ease', color: '#111',
+                                WebkitAppearance: 'none', appearance: 'none',
+                                WebkitTapHighlightColor: 'transparent',
                               }}
                               onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,1)'}
                               onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.85)'}
@@ -928,12 +930,14 @@ function MainApp() {
                                 setSheetTab(next === 0 && has3d ? '3d' : '2d');
                               }}
                               style={{
-                                position: 'absolute', right: 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
-                                zIndex: 4, background: 'rgba(255,255,255,0.85)', border: 'none',
-                                borderRadius: '50%', width: 32, height: 32, display: 'flex',
+                                position: 'absolute', right: isMobileSizeLayout ? -16 : 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
+                                zIndex: 4, background: 'rgba(255,255,255,0.9)', border: 'none',
+                                borderRadius: '50%', width: isMobileSizeLayout ? 36 : 32, height: isMobileSizeLayout ? 36 : 32, display: 'flex',
                                 alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                                boxShadow: '0 2px 10px rgba(0,0,0,0.14)', fontSize: 14,
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.18)', fontSize: 14,
                                 transition: 'background 0.15s ease', color: '#111',
+                                WebkitAppearance: 'none', appearance: 'none',
+                                WebkitTapHighlightColor: 'transparent',
                               }}
                               onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,1)'}
                               onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.85)'}
@@ -1032,7 +1036,7 @@ function MainApp() {
             </div>
 
             {/* Damso Pill Controller Wrapper - Anchored cleanly OUTSIDE and BELOW the modal */}
-            <div style={{ position: 'absolute', top: isMobileSizeLayout ? 'calc(100% + 6px)' : 'calc(100% + 16px)', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 1000 }}>
+            <div style={{ position: 'absolute', top: isMobileSizeLayout ? 'calc(100% + 14px)' : 'calc(100% + 16px)', left: 0, width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 1000 }}>
               <div className={`damso-pill-controller ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.2s' }}>
                 <button className="pill-btn" onClick={() => {
                   setSlideDir('prev');
