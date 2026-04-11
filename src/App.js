@@ -335,46 +335,6 @@ function MainApp() {
 
     if (!sizes.length) return null;
 
-    if (isMobileSizeLayout) {
-      return (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#333", marginBottom: 10 }}>
-            SIZE
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(68px, 1fr))", gap: 8 }}>
-            {sizes.map((s) => {
-              const active = activeSize === s;
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => {
-                    setSelectedSize(s);
-                    setSizeDropdownOpen(false);
-                  }}
-                  style={{
-                    minHeight: 42,
-                    border: "1px solid rgba(0,0,0,0.1)",
-                    borderRadius: 12,
-                    background: active ? "#111" : "rgba(255,255,255,0.92)",
-                    color: active ? "#fff" : "#111",
-                    fontSize: 11,
-                    fontWeight: active ? 800 : 600,
-                    letterSpacing: 0.6,
-                    textTransform: "uppercase",
-                    cursor: "pointer",
-                    boxShadow: active ? "0 6px 18px rgba(0,0,0,0.12)" : "none",
-                  }}
-                >
-                  {s}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div style={{ position: "relative", marginBottom: 14, zIndex: 20 }}>
         <div
