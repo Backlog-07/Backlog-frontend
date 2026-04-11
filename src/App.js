@@ -791,7 +791,7 @@ function MainApp() {
           position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
           padding: isMobileSizeLayout ? '10px 20px 12px' : '20px',
-          transform: isMobileSizeLayout ? 'translateY(-16px)' : 'none',
+          transform: isMobileSizeLayout ? 'translateY(-28px)' : 'none',
         }}>
           <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{ pointerEvents: 'none', display: (sheetVisible && !isClosingSheet) ? 'none' : 'flex' }} />
         </div>
@@ -815,7 +815,7 @@ function MainApp() {
           position: 'fixed', inset: 0, zIndex: 10, pointerEvents: 'none',
           display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
           padding: isMobileSizeLayout ? '10px 20px 12px' : '20px',
-          transform: isMobileSizeLayout ? 'translateY(-16px)' : 'none',
+          transform: isMobileSizeLayout ? 'translateY(-28px)' : 'none',
         }}>
 
           <div className={`damso-modal ${isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}`} style={{
@@ -907,7 +907,7 @@ function MainApp() {
                                 setSheetTab(prev === 0 && has3d ? '3d' : '2d');
                               }}
                               style={{
-                                position: 'absolute', left: 10, top: isMobileSizeLayout ? '34%' : '50%', transform: 'translateY(-50%)',
+                                position: 'absolute', left: 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
                                 zIndex: 4, background: 'rgba(255,255,255,0.85)', border: 'none',
                                 borderRadius: '50%', width: 32, height: 32, display: 'flex',
                                 alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
@@ -925,7 +925,7 @@ function MainApp() {
                                 setSheetTab(next === 0 && has3d ? '3d' : '2d');
                               }}
                               style={{
-                                position: 'absolute', right: 10, top: isMobileSizeLayout ? '34%' : '50%', transform: 'translateY(-50%)',
+                                position: 'absolute', right: 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
                                 zIndex: 4, background: 'rgba(255,255,255,0.85)', border: 'none',
                                 borderRadius: '50%', width: 32, height: 32, display: 'flex',
                                 alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
