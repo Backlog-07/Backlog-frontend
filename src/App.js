@@ -164,7 +164,7 @@ function MainApp() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [noProducts, setNoProducts] = useState(false);
-  const [shopifyError] = useState("");
+  const shopifyError = "";
   const [selectedSize, setSelectedSize] = useState(null);
   const [sizeDropdownOpen, setSizeDropdownOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
