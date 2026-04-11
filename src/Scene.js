@@ -235,7 +235,8 @@ export default function Scene({
           const compress = 1 - CAROUSEL_LATERAL_COMPRESS * (1 - scale);
           const x = rawX * compress;
 
-          const railY = isMobile ? CAROUSEL_RAIL_Y + 0.18 : CAROUSEL_RAIL_Y + 0.2;
+          let railY = isMobile ? CAROUSEL_RAIL_Y + 0.18 : CAROUSEL_RAIL_Y + 0.2;
+          if (isMobile && isPreview) railY += 0.28;
           return (
             <group key={product.id || i} position={[x, railY, 0]}>
               <group scale={[mobileScale, mobileScale, mobileScale]}>

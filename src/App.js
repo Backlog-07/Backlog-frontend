@@ -828,7 +828,7 @@ function MainApp() {
                                 setSheetTab(prev === 0 && has3d ? '3d' : '2d');
                               }}
                               style={{
-                                position: 'absolute', left: isMobileSizeLayout ? -16 : 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
+                                position: 'absolute', left: isMobileSizeLayout ? 8 : 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
                                 zIndex: 4, background: 'rgba(255,255,255,0.9)', border: 'none',
                                 borderRadius: '50%', width: isMobileSizeLayout ? 36 : 32, height: isMobileSizeLayout ? 36 : 32, display: 'flex',
                                 alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
@@ -850,7 +850,7 @@ function MainApp() {
                                 setSheetTab(next === 0 && has3d ? '3d' : '2d');
                               }}
                               style={{
-                                position: 'absolute', right: isMobileSizeLayout ? -16 : 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
+                                position: 'absolute', right: isMobileSizeLayout ? 8 : 10, top: isMobileSizeLayout ? '50%' : '50%', transform: 'translateY(-50%)',
                                 zIndex: 4, background: 'rgba(255,255,255,0.9)', border: 'none',
                                 borderRadius: '50%', width: isMobileSizeLayout ? 36 : 32, height: isMobileSizeLayout ? 36 : 32, display: 'flex',
                                 alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
