@@ -101,14 +101,14 @@ export default function Scene({
     if (!count) return;
 
     const centerIndex = Math.round(offset / itemWidth);
-    const preloadRadius = isMobile ? 2 : 4;
+    const preloadRadius = isMobile ? 3 : 5; // Expand preload radius slightly to prevent swiping lag
 
     for (let step = -preloadRadius; step <= preloadRadius; step += 1) {
       const idx = ((centerIndex + step) % count + count) % count;
       const product = products[idx];
       const url = product?.glbUrl ? resolveGlbUrl(product.glbUrl) : null;
       if (url) {
-        useGLTF.preload(url);
+        useGLTF.preload(url, "https://www.gstatic.com/draco/versioned/decoders/1.5.5/");
       }
     }
   }, [count, isMobile, itemWidth, offset, products]);
@@ -116,6 +116,7 @@ export default function Scene({
   if (count === 0) {
     return (
       <Canvas
+        dpr={[1, 1.5]}
         camera={{ position: [0, 1.6, 7], fov: 35 }}
         gl={{ 
           powerPreference: "high-performance",
@@ -135,6 +136,7 @@ export default function Scene({
 
   return (
     <Canvas
+    dpr={[1, 1.5]}
     frameloop="always"
     camera={
       previewCamera

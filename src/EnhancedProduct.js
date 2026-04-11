@@ -92,7 +92,7 @@ function ImageTile({ imageUrl, active }) {
 
 function ProductModel({ glbUrl, active }) {
   const url = useMemo(() => resolveGlbUrl(glbUrl), [glbUrl]);
-  const { scene } = useGLTF(url);
+  const { scene } = useGLTF(url, "https://www.gstatic.com/draco/versioned/decoders/1.5.5/");
 
   const cloned = useMemo(() => scene.clone(true), [scene]);
 
