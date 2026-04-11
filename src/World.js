@@ -528,7 +528,7 @@ export default function World() {
           .wld-center {
             width: 100vw;
             height: calc(var(--app-vh, 1vh) * 100);
-            transform: translateY(clamp(-60px, calc(var(--app-vh, 1vh) * -5.4), -46px));
+            transform: translateY(clamp(-76px, calc(var(--app-vh, 1vh) * -6.2), -58px));
           }
 
           .wld-card {

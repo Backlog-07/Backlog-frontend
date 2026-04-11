@@ -187,14 +187,14 @@ button {
 
 @media (max-width: 768px) {
   .joystick-wrapper {
-    bottom: calc(260px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(244px + env(safe-area-inset-bottom, 0px));
     gap: 18px;
   }
 }
 
 @media (max-width: 480px) {
   .joystick-wrapper {
-    bottom: calc(280px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(262px + env(safe-area-inset-bottom, 0px));
   }
 }
 
