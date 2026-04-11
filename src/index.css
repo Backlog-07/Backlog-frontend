@@ -37,8 +37,8 @@ code {
   opacity: 1;
   transform: translateY(0);
   transition:
-    opacity 920ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 920ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
 }
 
@@ -97,7 +97,7 @@ code {
   height: 0.95em;
   background: #000;
   opacity: 0.9;
-  animation: boot-caret 1400ms steps(1, end) infinite;
+  animation: boot-caret 400ms steps(1, end) infinite;
 }
 
 #app-boot-loader .boot-brand .boot-reveal {
@@ -105,7 +105,7 @@ code {
   overflow: hidden;
   vertical-align: bottom;
   max-width: 0;
-  animation: boot-reveal 1700ms cubic-bezier(0.22, 1, 0.36, 1) 220ms forwards;
+  animation: boot-reveal 400ms cubic-bezier(0.22, 1, 0.36, 1) 50ms forwards;
   will-change: max-width;
 }
 
@@ -116,7 +116,7 @@ code {
   color: var(--boot-muted);
   transform: translateY(2px);
   opacity: 0;
-  animation: boot-fade-up 1200ms cubic-bezier(0.22, 1, 0.36, 1) 820ms forwards;
+  animation: boot-fade-up 300ms cubic-bezier(0.22, 1, 0.36, 1) 200ms forwards;
 }
 
 #app-boot-loader .boot-line {
@@ -130,7 +130,7 @@ code {
   );
   transform: scaleX(0.6);
   opacity: 0.35;
-  animation: boot-line 1900ms cubic-bezier(0.22, 1, 0.36, 1) 420ms infinite;
+  animation: boot-line 600ms cubic-bezier(0.22, 1, 0.36, 1) 100ms infinite;
 }
 
 #app-boot-loader .boot-percent {
@@ -141,7 +141,7 @@ code {
   color: rgba(0, 0, 0, 0.9);
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 24px rgba(0, 0, 0, 0.1);
-  animation: boot-percent-pulse 1.8s ease-in-out infinite;
+  animation: boot-percent-pulse 0.6s ease-in-out infinite;
 }
 
 #app-boot-loader .boot-progress {

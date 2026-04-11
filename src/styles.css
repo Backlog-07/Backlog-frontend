@@ -1232,6 +1232,8 @@ canvas {
   top: 18px;
   left: 50%;
   transform: translateX(-50%);
+  -webkit-appearance: none;
+  appearance: none;
   background: none;
   border: none;
   color: #b0b0b0;
@@ -1244,6 +1246,7 @@ canvas {
   border-radius: 3px;
   transition: all 0.2s;
   z-index: 10;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .menu-btn:hover {
@@ -1274,6 +1277,8 @@ canvas {
 
 .control-btn {
   position: absolute;
+  -webkit-appearance: none;
+  appearance: none;
   background: none;
   border: none;
   color: #b0b0b0;
@@ -1284,6 +1289,7 @@ canvas {
   border-radius: 3px;
   transition: all 0.2s;
   z-index: 10;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .control-btn:hover {
@@ -1320,6 +1326,8 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  -webkit-appearance: none;
+  appearance: none;
   width: 75px;
   height: 75px;
   background: #333333;
@@ -1329,6 +1337,7 @@ canvas {
   transition: all 0.2s;
   box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.05);
   z-index: 5;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .center-btn:hover {
