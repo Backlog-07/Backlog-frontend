@@ -105,12 +105,13 @@ function BootFallback() {
         position: "fixed",
         inset: 0,
         width: "100vw",
-        height: "100vh",
+        height: "calc(var(--app-vh, 1vh) * 100)",
         display: "grid",
         placeItems: "center",
         background: "#fff",
         color: "#000",
         zIndex: 99999,
+        overflow: "hidden",
       }}
     >
       <div
@@ -120,6 +121,7 @@ function BootFallback() {
           justifyItems: "center",
           gap: 14,
           padding: "28px 22px",
+          transform: "translateY(-5vh)",
         }}
       >
         <div
