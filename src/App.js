@@ -164,7 +164,6 @@ function MainApp() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [offset, setOffset] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [noProducts, setNoProducts] = useState(false);
   const shopifyError = "";
   const [selectedSize, setSelectedSize] = useState(null);
@@ -445,7 +444,6 @@ function MainApp() {
       const cached = readProductCache();
       if (cached && cached.length > 0) {
         setProducts(cached);
-        setLoading(false);
         setNoProducts(false);
       }
 
@@ -461,8 +459,6 @@ function MainApp() {
         }
       } catch (e) {
         if (!cached?.length) setNoProducts(true);
-      } finally {
-        setLoading(false);
       }
     };
     load();
