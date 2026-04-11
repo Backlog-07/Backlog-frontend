@@ -156,10 +156,15 @@ export async function fetchWorldGallery() {
     }
   }`;
   const data = await shopifyGraphQL(query);
+  console.log('[WorldGallery] Raw response:', JSON.stringify(data, null, 2));
   const edges = data?.metaobjects?.edges || [];
-  return edges.map(({ node }) => {
+  console.log('[WorldGallery] Edges count:', edges.length);
+  const results = edges.map(({ node }) => {
     const m = {};
     (node.fields || []).forEach(f => { m[f.key] = f.value; });
+    console.log('[WorldGallery] Fields for entry:', m);
     return { id: node.id, imageUrl: m['cloudflare_link'] || null, caption: '' };
   }).filter(img => !!img.imageUrl);
+  console.log('[WorldGallery] Final results:', results.length);
+  return results;
 }

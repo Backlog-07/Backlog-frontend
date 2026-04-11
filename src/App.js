@@ -10,33 +10,25 @@ import World from "./World";
 import cartIcon from "./whitecart.png";
 import { getCarouselItemWidth } from "./carouselLayout";
 
-const API_BASE = (process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? '' : `http://${window.location.hostname}:4000`)).replace(/\/$/, "");
 const getItemWidth = () => getCarouselItemWidth();
 const DEFAULT_PRODUCTS = [];
 const SHOPIFY_CART_STORAGE_KEY = "shopify-cart";
-const normalizeBackendProduct = (p) => ({
-  ...p,
-  id: p.id,
-  name: p.name || p.title || "Item",
-  desc: p.desc || p.description || "",
-  imageUrl: p.imageUrl || p.images?.edges?.[0]?.node?.url || null,
-  imageUrls: (() => {
-    const base = (p.images?.edges || []).map(e => e?.node?.url).filter(Boolean);
-    if (p.imageUrl && !base.includes(p.imageUrl)) base.unshift(p.imageUrl);
-    return base.length > 0 ? base : (p.imageUrl ? [p.imageUrl] : []);
-  })(),
-  glbUrl: p.glbUrl || p.metafield?.value || null,
-  sizes: Array.isArray(p.sizes)
-    ? p.sizes
-    : p.variants?.edges?.map((v) => v.node.title) || [],
-  variants: p.variants || null,
-  price: p.price || p.variants?.edges?.[0]?.node?.price?.amount || "0",
-  stock: Number(p.stock) || 0,
-  available:
-    typeof p.available === "boolean"
-      ? p.available
-      : (Number(p.stock) || 0) > 0,
-});
+const PRODUCTS_CACHE_KEY = "backlog-products-cache";
+const PRODUCTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const readProductCache = () => {
+  try {
+    const raw = localStorage.getItem(PRODUCTS_CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > PRODUCTS_CACHE_TTL) return null;
+    return data;
+  } catch { return null; }
+};
+
+const writeProductCache = (data) => {
+  try { localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+};
 const normalizeShopifyProduct = (p) => ({
   id: p.id,
   name: p.title,
@@ -369,47 +361,26 @@ function MainApp() {
 
   useEffect(() => {
     const load = async () => {
-      const loadBackendProducts = async () => {
-        const res = await fetch(`${API_BASE}/api/products`);
-        if (!res.ok) throw new Error("Failed to fetch backend products");
-        const data = await res.json();
-        return (Array.isArray(data) ? data : []).map(normalizeBackendProduct);
-      };
+      // ⚡ Show cached products instantly while fresh data loads
+      const cached = readProductCache();
+      if (cached && cached.length > 0) {
+        setProducts(cached);
+        setLoading(false);
+        setNoProducts(false);
+      }
 
       try {
         const data = await fetchShopifyProducts();
         const normalized = (Array.isArray(data) ? data : []).map(normalizeShopifyProduct);
-
         if (normalized.length > 0) {
           setProducts(normalized);
+          writeProductCache(normalized);
           setNoProducts(false);
-          setShopifyError("");
-          return;
+        } else {
+          if (!cached?.length) setNoProducts(true);
         }
-
-        const backendProducts = await loadBackendProducts();
-        setProducts(backendProducts);
-        setNoProducts(backendProducts.length === 0);
-        setShopifyError("");
       } catch (e) {
-        try {
-          const backendProducts = await loadBackendProducts();
-          setProducts(backendProducts);
-          setNoProducts(backendProducts.length === 0);
-          setShopifyError(
-            `Shopify unavailable, showing backend products. ${String(
-              e?.message || e || "Failed to fetch from Shopify"
-            )}`
-          );
-        } catch (backendError) {
-          setProducts(DEFAULT_PRODUCTS);
-          setNoProducts(true);
-          setShopifyError(
-            `Shopify and backend fetch failed. ${String(
-              e?.message || e || "Failed to fetch from Shopify"
-            )}`
-          );
-        }
+        if (!cached?.length) setNoProducts(true);
       } finally {
         setLoading(false);
       }
@@ -417,33 +388,7 @@ function MainApp() {
     load();
   }, []);
 
-  // (Optional) You can add polling or subscription logic for live updates if needed
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.EventSource) return;
-    let es;
-    try {
-      es = new EventSource(`${API_BASE}/api/products/stream`);
-      es.addEventListener("products", (evt) => {
-        try {
-          const payload = JSON.parse(evt.data || "[]");
-          const normalized = (Array.isArray(payload) ? payload : []).map(
-            (p) => ({
-              ...p,
-              stock: Number(p.stock) || 0,
-              available: (Number(p.stock) || 0) > 0,
-            })
-          );
-          setProducts(normalized);
-        } catch (err) { }
-      });
-    } catch (e) { }
-    return () => {
-      try {
-        if (es) es.close();
-      } catch (e) { }
-    };
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -506,8 +451,7 @@ function MainApp() {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [menuOpen]);
 
-  const openProductView = async (product) => {
-    // instantly show product details while network updates load in background
+  const openProductView = (product) => {
     const base = {
       ...product,
       stock: Number(product.stock) || 0,
@@ -516,28 +460,9 @@ function MainApp() {
     setSelectedProduct(base);
     setSelectedSize(base.sizes?.[0] ?? null);
     setSelectedMediaIndex(0);
-    setSheetTab(base.glbUrl ? "3d" : base.imageUrl ? "2d" : "2d");
-    // keep sheet closed; reveal via 'More Informations' action
+    setSheetTab(base.glbUrl ? "3d" : "2d");
     setSheetVisible(false);
     setQuantity(1);
-
-    try {
-      const pid = String(product?.id || "");
-      // Backend /api/products/:id only knows local ids (e.g. "p..."), not Shopify gid:// ids.
-      if (!pid || pid.startsWith("gid://")) return;
-      const res = await fetch(`${API_BASE}/api/products/${product.id}`);
-      if (res.ok) {
-        const latestRaw = await res.json();
-        const latest = {
-          ...latestRaw,
-          stock: Number(latestRaw.stock) || 0,
-          available: (Number(latestRaw.stock) || 0) > 0,
-        };
-        setSelectedProduct((prev) => ({ ...prev, ...latest }));
-      }
-    } catch (e) {
-      // ignore and keep immediate details
-    }
   };
 
   const handleCenterButtonClick = () => {
@@ -1143,7 +1068,6 @@ function WorldApp() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [offset, setOffset] = useState(0); // used for UI/label and selection logic
   // activeIndex not needed now that the bottom sheet is removed
-  const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [worldGalleryOpen, setWorldGalleryOpen] = useState(false);
@@ -1238,9 +1162,10 @@ function WorldApp() {
 
   const handleArrowClick = useCallback((direction) => {
     // When on world page, also nudge the cinematic carousel (DOM-based)
+    const worldDirection = direction === 1 ? -1 : 1;
     try {
       window.dispatchEvent(
-        new CustomEvent('worldCarouselStep', { detail: { dir: direction } })
+        new CustomEvent('worldCarouselStep', { detail: { dir: worldDirection } })
       );
     } catch { }
 
@@ -1253,28 +1178,8 @@ function WorldApp() {
     writeStoredCart(cart);
   }, [cart]);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/products`);
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        const normalized = (
-          Array.isArray(data) && data.length ? data : DEFAULT_PRODUCTS
-        ).map((p) => ({
-          ...p,
-          stock: Number(p.stock) || 0,
-          available: (Number(p.stock) || 0) > 0,
-        }));
-        setProducts(normalized);
-      } catch (e) {
-        setProducts(DEFAULT_PRODUCTS);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+
+
 
   const handleJoystickDrag = (delta) => {
     if (snapAnimRef.current) {
@@ -1344,10 +1249,6 @@ function WorldApp() {
       window.dispatchEvent(new CustomEvent('worldCenterClick'));
     } catch { }
   };
-
-  if (loading) {
-    return null;
-  }
 
   return (
     <div className="app">
