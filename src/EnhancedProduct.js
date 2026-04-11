@@ -1,18 +1,18 @@
-import React, { useRef, useMemo, useEffect } from "react";
+import React, { useRef, useMemo, useEffect, Suspense } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 
 const API_BASE = (process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? '' : `http://${window.location.hostname}:4000`)).replace(/\/$/, "");
 
-function resolveImageUrl(imageUrl) {
+export function resolveImageUrl(imageUrl) {
   if (!imageUrl) return null;
   if (imageUrl.startsWith("http")) return imageUrl;
   if (imageUrl.startsWith("/")) return `${API_BASE}${imageUrl}`;
   return imageUrl;
 }
 
-function resolveGlbUrl(glbUrl) {
+export function resolveGlbUrl(glbUrl) {
   if (!glbUrl) return null;
   const raw = String(glbUrl).trim();
   if (!raw) return null;
@@ -168,6 +168,68 @@ function LegacyTile({ active }) {
   );
 }
 
+function ModelSkeleton({ active }) {
+  const groupRef = useRef();
+  const bodyRef = useRef();
+  const accentRef = useRef();
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const pulse = 0.5 + Math.sin(t * 2.2) * 0.07;
+
+    if (groupRef.current) {
+      groupRef.current.rotation.y = Math.sin(t * 0.45) * 0.04;
+      groupRef.current.position.y = Math.sin(t * 1.2) * 0.008;
+    }
+
+    if (bodyRef.current?.material) {
+      bodyRef.current.material.opacity = active ? 0.92 : 0.84 + pulse * 0.08;
+    }
+
+    if (accentRef.current?.material) {
+      accentRef.current.material.opacity = active ? 0.75 : 0.62 + pulse * 0.06;
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <mesh ref={bodyRef}>
+        <boxGeometry args={[0.62, 0.98, 0.18]} />
+        <meshStandardMaterial
+          color="#dedede"
+          roughness={0.95}
+          metalness={0.02}
+          transparent
+          opacity={0.88}
+          side={THREE.FrontSide}
+        />
+      </mesh>
+      <mesh ref={accentRef} position={[0, 0.34, 0.02]}>
+        <boxGeometry args={[0.34, 0.2, 0.12]} />
+        <meshStandardMaterial
+          color="#eeeeee"
+          roughness={0.98}
+          metalness={0.01}
+          transparent
+          opacity={0.7}
+          side={THREE.FrontSide}
+        />
+      </mesh>
+      <mesh position={[0, -0.22, 0.03]}>
+        <boxGeometry args={[0.24, 0.08, 0.08]} />
+        <meshStandardMaterial
+          color="#cfcfcf"
+          roughness={1}
+          metalness={0}
+          transparent
+          opacity={0.55}
+          side={THREE.FrontSide}
+        />
+      </mesh>
+    </group>
+  );
+}
+
 function EnhancedProduct({ position, active, onClick, product, index = 0, railY }) {
   const meshRef = useRef();
   const { mouse } = useThree();
@@ -212,7 +274,9 @@ function EnhancedProduct({ position, active, onClick, product, index = 0, railY 
             resetKey={product.glbUrl}
             fallback={hasImage ? <ImageTile imageUrl={product.imageUrl} active={active} /> : <LegacyTile active={active} />}
           >
-            <ProductModel glbUrl={product.glbUrl} active={active} />
+            <Suspense fallback={<ModelSkeleton active={active} />}>
+              <ProductModel glbUrl={product.glbUrl} active={active} />
+            </Suspense>
           </ModelErrorBoundary>
         ) : hasImage ? (
           <ImageTile imageUrl={product.imageUrl} active={active} />

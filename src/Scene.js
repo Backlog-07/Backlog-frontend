@@ -1,8 +1,8 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, Html, OrbitControls } from "@react-three/drei";
+import { Environment, Html, OrbitControls, useGLTF } from "@react-three/drei";
 import EnhancedProduct from "./EnhancedProduct";
 import Particles from "./Particles";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import * as THREE from "three";
 import React from "react";
 import {
@@ -12,6 +12,7 @@ import {
   CAROUSEL_CAM_Z,
   CAROUSEL_FOV,
 } from "./carouselLayout";
+import { resolveGlbUrl } from "./EnhancedProduct";
 
 /** World Y for product origins (rail) */
 const CAROUSEL_RAIL_Y = 1.2;
@@ -95,6 +96,22 @@ export default function Scene({
 
   const itemWidth = getCarouselItemWidth();
   const totalWidth = count * itemWidth;
+
+  useEffect(() => {
+    if (!count) return;
+
+    const centerIndex = Math.round(offset / itemWidth);
+    const preloadRadius = isMobile ? 2 : 4;
+
+    for (let step = -preloadRadius; step <= preloadRadius; step += 1) {
+      const idx = ((centerIndex + step) % count + count) % count;
+      const product = products[idx];
+      const url = product?.glbUrl ? resolveGlbUrl(product.glbUrl) : null;
+      if (url) {
+        useGLTF.preload(url);
+      }
+    }
+  }, [count, isMobile, itemWidth, offset, products]);
 
   if (count === 0) {
     return (

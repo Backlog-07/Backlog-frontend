@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { fetchProducts as fetchShopifyProducts, createCart, addToCart } from "./shopifyApi";
 import Scene from "./Scene";
 import EnhancedJoystick from "./EnhancedJoystick";
 import "./styles.css";
-import AdminPanel from "./AdminPanel";
 import CartPanel from "./CartPanel";
-import CheckoutPage from "./checkout";
-import World from "./World";
 import cartIcon from "./whitecart.png";
 import { getCarouselItemWidth } from "./carouselLayout";
+
+const AdminPanel = lazy(() => import("./AdminPanel"));
+const CheckoutPage = lazy(() => import("./checkout"));
+const World = lazy(() => import("./World"));
 
 const getItemWidth = () => getCarouselItemWidth();
 const DEFAULT_PRODUCTS = [];
@@ -73,6 +74,94 @@ const writeStoredCart = (cart) => {
     }
   } catch { }
 };
+
+function BootFallback() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const duration = 5000;
+    const start = performance.now();
+    let rafId = 0;
+
+    const tick = (now) => {
+      const elapsed = Math.min(duration, now - start);
+      const next = Math.round((elapsed / duration) * 100);
+      setProgress(next);
+
+      if (elapsed < duration) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  return (
+    <div
+      aria-label="Loading"
+      role="status"
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100vh",
+        display: "grid",
+        placeItems: "center",
+        background: "#fff",
+        color: "#000",
+        zIndex: 99999,
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          display: "grid",
+          justifyItems: "center",
+          gap: 14,
+          padding: "28px 22px",
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 900,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            fontSize: "clamp(20px, 2.2vw, 30px)",
+            lineHeight: 1.1,
+            whiteSpace: "nowrap",
+          }}
+          >
+          Backlog
+        </div>
+        <div className="boot-percent" aria-hidden="true">{progress}%</div>
+        <div
+          aria-hidden="true"
+          style={{
+            width: "min(260px, 72vw)",
+            height: 26,
+          }}
+          className="boot-progress"
+        >
+          <div
+            className="boot-progress-fill"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "rgba(0, 0, 0, 0.7)",
+          }}
+        >
+          Preparing store
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SiteMenu({ activePage, menuOpen, setMenuOpen, onCartOpen, cartItemCount, style }) {
   return (
@@ -163,6 +252,7 @@ function MainApp() {
   const [offset, setOffset] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [splashReady, setSplashReady] = useState(false);
   const [noProducts, setNoProducts] = useState(false);
   const shopifyError = "";
   const [selectedSize, setSelectedSize] = useState(null);
@@ -188,6 +278,13 @@ function MainApp() {
   useEffect(() => {
     offsetRef.current = offset;
   }, [offset]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSplashReady(true);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const handleCloseHero = () => {
     setIsClosingHero(true);
@@ -513,12 +610,10 @@ function MainApp() {
     }
   };
 
-  if (loading) {
-    return null;
-  }
+  const showSplash = loading || !splashReady;
 
   return (
-    <div className="app">
+    <div className="app" style={{ position: "relative" }}>
       {noProducts && !selectedProduct && (
         <div
           style={{
@@ -546,6 +641,8 @@ function MainApp() {
           </div>
         </div>
       )}
+
+      {showSplash && <BootFallback />}
       {/* Header */}
       {!selectedProduct && (
         <header className="header">
@@ -1048,20 +1145,21 @@ export default function App() {
     return () => document.removeEventListener("click", handleNavigation);
   }, []);
 
-  if (currentPage === "/checkout") {
-    return <CheckoutPage />;
-  }
-  if (currentPage === "/admin") {
-    return <AdminPanel />;
-  }
-  if (currentPage === "/world") {
-    return <WorldApp />;
-  }
-  if (currentPage === "/about") {
-    return <AboutApp />;
-  }
-
-  return <MainApp />;
+  return (
+    <Suspense fallback={<BootFallback />}>
+      {currentPage === "/checkout" ? (
+        <CheckoutPage />
+      ) : currentPage === "/admin" ? (
+        <AdminPanel />
+      ) : currentPage === "/world" ? (
+        <WorldApp />
+      ) : currentPage === "/about" ? (
+        <AboutApp />
+      ) : (
+        <MainApp />
+      )}
+    </Suspense>
+  );
 }
 
 function WorldApp() {
