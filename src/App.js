@@ -76,12 +76,11 @@ const writeStoredCart = (cart) => {
 };
 
 
-function SiteMenu({ activePage, menuOpen, setMenuOpen, onCartOpen, cartItemCount, style }) {
+function SiteMenu({ activePage, menuOpen, setMenuOpen, onCartOpen, cartItemCount }) {
   return (
     <nav
       className={`expanding-menu ${menuOpen ? "open" : ""}`}
       onClick={(e) => e.stopPropagation()}
-      style={style}
     >
       <div className="menu-tabs">
         <button
@@ -165,7 +164,6 @@ function MainApp() {
   const [offset, setOffset] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [noProducts, setNoProducts] = useState(false);
-  const shopifyError = "";
   const [selectedSize, setSelectedSize] = useState(null);
   const [sizeDropdownOpen, setSizeDropdownOpen] = useState(false);
   const [isMobileSizeLayout, setIsMobileSizeLayout] = useState(() => {
@@ -611,11 +609,8 @@ function MainApp() {
         >
           <div style={{ textAlign: "center", padding: 20 }}>
             <div>No products right now</div>
-            {process.env.NODE_ENV !== "production" && shopifyError && (
-              <div style={{ marginTop: 10, fontSize: 12, fontWeight: 600, opacity: 0.65, textTransform: "none", letterSpacing: 0 }}>
-                {shopifyError}
-              </div>
-            )}
+
+
           </div>
         </div>
       )}
@@ -1271,15 +1266,16 @@ function WorldApp() {
         </div>
       </header>
 
-      {/* Expanding Menu */}
-      <SiteMenu
-        activePage="world"
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
-        onCartOpen={() => setCartOpen(true)}
-        cartItemCount={cartItemCount}
-        style={{ opacity: worldGalleryOpen ? 0 : 1, pointerEvents: worldGalleryOpen ? "none" : "auto", transition: "opacity 0.3s ease" }}
-      />
+      {/* Expanding Menu — wrapped in a separate div so inline opacity never fights the CSS animation */}
+      <div style={{ opacity: worldGalleryOpen ? 0 : 1, pointerEvents: worldGalleryOpen ? "none" : "auto", transition: "opacity 0.3s ease" }}>
+        <SiteMenu
+          activePage="world"
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          onCartOpen={() => setCartOpen(true)}
+          cartItemCount={cartItemCount}
+        />
+      </div>
 
       <CartPanel
         open={cartOpen}
