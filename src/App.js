@@ -75,95 +75,6 @@ const writeStoredCart = (cart) => {
   } catch { }
 };
 
-function BootFallback() {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const duration = 3500;
-    const start = performance.now();
-    let rafId = 0;
-
-    const tick = (now) => {
-      const elapsed = Math.min(duration, now - start);
-      const next = Math.round((elapsed / duration) * 100);
-      setProgress(next);
-
-      if (elapsed < duration) {
-        rafId = requestAnimationFrame(tick);
-      }
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, []);
-
-  return (
-    <div
-      aria-label="Loading"
-      role="status"
-      style={{
-        position: "fixed",
-        inset: 0,
-        width: "100vw",
-        height: "calc(var(--app-vh, 1vh) * 100)",
-        display: "grid",
-        placeItems: "center",
-        background: "#fff",
-        color: "#000",
-        zIndex: 99999,
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "relative",
-          display: "grid",
-          justifyItems: "center",
-          gap: 14,
-          padding: "28px 22px",
-          transform: "translateY(-5vh)",
-        }}
-      >
-        <div
-          style={{
-            fontWeight: 900,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            fontSize: "clamp(20px, 2.2vw, 30px)",
-            lineHeight: 1.1,
-            whiteSpace: "nowrap",
-          }}
-          >
-          Backlog
-        </div>
-        <div className="boot-percent" aria-hidden="true">{progress}%</div>
-        <div
-          aria-hidden="true"
-          style={{
-            width: "min(260px, 72vw)",
-            height: 26,
-          }}
-          className="boot-progress"
-        >
-          <div
-            className="boot-progress-fill"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div
-          style={{
-            fontSize: 12,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "rgba(0, 0, 0, 0.7)",
-          }}
-        >
-          Preparing store
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function SiteMenu({ activePage, menuOpen, setMenuOpen, onCartOpen, cartItemCount, style }) {
   return (
@@ -254,7 +165,6 @@ function MainApp() {
   const [offset, setOffset] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [splashReady, setSplashReady] = useState(false);
   const [noProducts, setNoProducts] = useState(false);
   const shopifyError = "";
   const [selectedSize, setSelectedSize] = useState(null);
@@ -280,17 +190,12 @@ function MainApp() {
 
   const scrollTimeoutRef = useRef(null);
   const offsetRef = useRef(0);
+  const touchStartRef = useRef(0);
+  const touchEndRef = useRef(0);
 
   useEffect(() => {
     offsetRef.current = offset;
   }, [offset]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setSplashReady(true);
-    }, 3500);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
@@ -688,7 +593,6 @@ function MainApp() {
     }
   };
 
-  const showSplash = loading || !splashReady;
 
   return (
     <div className="app" style={{ position: "relative" }}>
@@ -720,7 +624,7 @@ function MainApp() {
         </div>
       )}
 
-      {showSplash && <BootFallback />}
+
       {/* Header */}
       {!selectedProduct && (
         <header className="header">
@@ -861,7 +765,25 @@ function MainApp() {
                     const imgUrl = isImgSlide ? slides[selectedMediaIndex] : null;
 
                     return (
-                      <div style={{
+                      <div 
+                        onTouchStart={e => { touchStartRef.current = e.targetTouches[0].clientX; }}
+                        onTouchMove={e => { touchEndRef.current = e.targetTouches[0].clientX; }}
+                        onTouchEnd={() => {
+                          if (!touchStartRef.current || !touchEndRef.current) return;
+                          const distance = touchStartRef.current - touchEndRef.current;
+                          if (distance > 50) {
+                            const next = (selectedMediaIndex + 1) % totalSlides;
+                            setSelectedMediaIndex(next);
+                            setSheetTab(next === 0 && has3d ? '3d' : '2d');
+                          } else if (distance < -50) {
+                            const prev = (selectedMediaIndex - 1 + totalSlides) % totalSlides;
+                            setSelectedMediaIndex(prev);
+                            setSheetTab(prev === 0 && has3d ? '3d' : '2d');
+                          }
+                          touchStartRef.current = 0;
+                          touchEndRef.current = 0;
+                        }}
+                        style={{
                         flex: 1, position: 'relative',
                         zIndex: 1,
                         pointerEvents: totalSlides > 1 ? 'auto' : 'none',
@@ -884,8 +806,8 @@ function MainApp() {
                               alt={selectedProduct.name}
                               onClick={() => setZoomedImage(imgUrl)}
                               style={{
-                                maxWidth: '78%',
-                                maxHeight: '78%',
+                                maxWidth: '88%',
+                                maxHeight: '88%',
                                 objectFit: 'contain',
                                 borderRadius: 8,
                                 boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
@@ -914,7 +836,7 @@ function MainApp() {
                                 zIndex: 4, background: 'rgba(255,255,255,0.9)', border: 'none',
                                 borderRadius: '50%', width: isMobileSizeLayout ? 36 : 32, height: isMobileSizeLayout ? 36 : 32, display: 'flex',
                                 alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                                boxShadow: '0 2px 10px rgba(0,0,0,0.18)', fontSize: 14,
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
                                 transition: 'background 0.15s ease', color: '#111',
                                 WebkitAppearance: 'none', appearance: 'none',
                                 WebkitTapHighlightColor: 'transparent',
@@ -922,7 +844,9 @@ function MainApp() {
                               onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,1)'}
                               onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.85)'}
                               aria-label="Previous"
-                            >‹</button>
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '-1px' }}><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            </button>
                             <button
                               onClick={() => {
                                 const next = (selectedMediaIndex + 1) % totalSlides;
@@ -934,7 +858,7 @@ function MainApp() {
                                 zIndex: 4, background: 'rgba(255,255,255,0.9)', border: 'none',
                                 borderRadius: '50%', width: isMobileSizeLayout ? 36 : 32, height: isMobileSizeLayout ? 36 : 32, display: 'flex',
                                 alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                                boxShadow: '0 2px 10px rgba(0,0,0,0.18)', fontSize: 14,
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
                                 transition: 'background 0.15s ease', color: '#111',
                                 WebkitAppearance: 'none', appearance: 'none',
                                 WebkitTapHighlightColor: 'transparent',
@@ -942,40 +866,13 @@ function MainApp() {
                               onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,1)'}
                               onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.85)'}
                               aria-label="Next"
-                            >›</button>
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '-1px' }}><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </button>
                           </>
                         )}
 
-                        {/* Dot Indicators (only shown when multiple slides exist) */}
-                        {totalSlides > 1 && (
-                          <div style={{
-                            position: 'absolute', bottom: isMobileSizeLayout ? 26 : 14, left: 0, right: 0, zIndex: 4,
-                            display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 7,
-                          }}>
-                            {slides.map((_, i) => (
-                              <button
-                                key={i}
-                                onClick={() => {
-                                  setSelectedMediaIndex(i);
-                                  // hide 3D model when on image slide, show on 3D slide
-                                  setSheetTab(i === 0 && has3d ? '3d' : '2d');
-                                }}
-                                style={{
-                                  width: selectedMediaIndex === i ? 20 : 7,
-                                  height: 7,
-                                  borderRadius: 999,
-                                  background: selectedMediaIndex === i ? '#111' : 'rgba(0,0,0,0.25)',
-                                  border: 'none',
-                                  padding: 0,
-                                  cursor: 'pointer',
-                                  transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                                  flexShrink: 0,
-                                }}
-                                aria-label={i === 0 && has3d ? '3D Model' : `Image ${i}`}
-                              />
-                            ))}
-                          </div>
-                        )}
+
                       </div>
                     );
                   })()}
@@ -1153,7 +1050,7 @@ export default function App() {
   }, []);
 
   return (
-    <Suspense fallback={<BootFallback />}>
+    <Suspense>
       {currentPage === "/checkout" ? (
         <CheckoutPage />
       ) : currentPage === "/admin" ? (

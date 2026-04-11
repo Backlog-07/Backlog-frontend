@@ -37,45 +37,11 @@ function ensureViewportVars() {
 }
 
 function ensureBootLoader() {
-  if (typeof document === 'undefined') return;
-  if (document.getElementById('app-boot-loader')) return;
-
-  const el = document.createElement('div');
-  el.id = 'app-boot-loader';
-  el.setAttribute('aria-label', 'Loading');
-  el.setAttribute('role', 'status');
-
-  el.innerHTML = `
-    <div class="boot-inner">
-      <div class="boot-brand">
-        <span class="boot-text"><span class="boot-reveal">Backlog</span></span>
-      </div>
-      <div class="boot-line" aria-hidden="true"></div>
-      <div class="boot-sub">Loading</div>
-    </div>
-  `;
-
-  el.style.color = '#000';
-  document.body.appendChild(el);
+  // Removed boot loader as requested
 }
 
 function hideBootLoader() {
-  if (typeof document === 'undefined') return;
-  const el = document.getElementById('app-boot-loader');
-  if (!el) return;
-
-  el.setAttribute('data-state', 'hidden');
-
-  const remove = () => {
-    try {
-      el.removeEventListener('transitionend', remove);
-      el.remove();
-    } catch {}
-  };
-
-  el.addEventListener('transitionend', remove);
-  // Safety removal in case transitionend doesn't fire.
-  window.setTimeout(remove, 600);
+  // Removed boot loader as requested
 }
 
 // Expose helpers so route-like pages can reuse the same loader.
@@ -85,7 +51,7 @@ if (typeof window !== 'undefined') {
   window.__hideBootLoader = hideBootLoader;
 }
 
-ensureBootLoader();
+// Removed call to ensureBootLoader() since it is disabled
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -94,12 +60,7 @@ root.render(
   </React.StrictMode>
 );
 
-// Hide loader after the 1s progress animation completes.
-if (typeof window !== 'undefined') {
-  window.setTimeout(() => {
-    hideBootLoader();
-  }, 1000);
-}
+// Hide loader removed - app renders immediately without splash screen
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))
