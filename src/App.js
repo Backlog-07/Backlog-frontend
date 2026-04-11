@@ -79,7 +79,7 @@ function BootFallback() {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const duration = 5000;
+    const duration = 3500;
     const start = performance.now();
     let rafId = 0;
 
@@ -282,7 +282,7 @@ function MainApp() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setSplashReady(true);
-    }, 5000);
+    }, 3500);
     return () => window.clearTimeout(timer);
   }, []);
 

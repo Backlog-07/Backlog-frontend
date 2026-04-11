@@ -187,14 +187,14 @@ button {
 
 @media (max-width: 768px) {
   .joystick-wrapper {
-    bottom: 260px;
+    bottom: calc(260px + env(safe-area-inset-bottom, 0px));
     gap: 18px;
   }
 }
 
 @media (max-width: 480px) {
   .joystick-wrapper {
-    bottom: 280px;
+    bottom: calc(280px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -1184,7 +1184,7 @@ canvas {
 /* ==================== IPOD CLICK WHEEL ==================== */
 .ipod-container {
   position: fixed;
-  bottom: 30px;
+  bottom: calc(30px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { fetchWorldGallery } from "./shopifyApi";
 
-const STRIP_VISIBLE_EACH_SIDE = 15;
-
+const WORLD_LAYOUT_QUERY = "(max-width: 900px)";
 const R2_BASE = 'https://pub-ca1e1931d1d24140b20bf79db813ae8c.r2.dev/World%20Images/';
 const FALLBACK_IMAGES = [
   'WhatsApp%20Image%202026-04-10%20at%2011.47.25%20PM%20%281%29.jpeg',
@@ -24,6 +23,10 @@ export default function World() {
   const [loadError, setLoadError] = useState(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [isCompactLayout, setIsCompactLayout] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(WORLD_LAYOUT_QUERY).matches;
+  });
   const touchStartRef = useRef(null);
   const suppressNextClickRef = useRef(false);
 
@@ -55,6 +58,22 @@ export default function World() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mediaQuery = window.matchMedia(WORLD_LAYOUT_QUERY);
+    const update = () => setIsCompactLayout(mediaQuery.matches);
+
+    update();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", update);
+      return () => mediaQuery.removeEventListener("change", update);
+    }
+
+    mediaQuery.addListener(update);
+    return () => mediaQuery.removeListener(update);
+  }, []);
+
+  useEffect(() => {
     window.dispatchEvent(
       new CustomEvent("worldGalleryState", { detail: { open: galleryOpen } })
     );
@@ -79,10 +98,56 @@ export default function World() {
   const jumpTo = useCallback(
     (idx) => {
       if (idx === currentIdx) return;
-      setCurrentIdx(idx);
+      setCurrentIdx(((idx % count) + count) % count);
     },
-    [currentIdx]
+    [currentIdx, count]
   );
+
+  const carouselItems = useMemo(() => {
+    if (!count) return [];
+
+    const normalizeDelta = (index) => {
+      let delta = index - currentIdx;
+      const half = count / 2;
+      if (delta > half) delta -= count;
+      if (delta < -half) delta += count;
+      return delta;
+    };
+
+    return images.map((img, index) => {
+      const delta = normalizeDelta(index);
+      const abs = Math.abs(delta);
+      const isActive = delta === 0;
+      const x = isActive
+        ? 0
+        : Math.sign(delta) * (
+            (isCompactLayout ? 72 : 188) + (Math.max(abs - 1, 0) * (isCompactLayout ? 58 : 62))
+          );
+      const y = 0;
+      const scale = isActive
+        ? (isCompactLayout ? 2.9 : 4.45)
+        : (isCompactLayout ? 0.11 : 0.78);
+      const opacity = isActive
+        ? 1
+        : (isCompactLayout ? 0 : Math.max(0.58, 0.94 - Math.min(abs, 7) * 0.018));
+      const rotateY = 0;
+      const zIndex = isActive ? 12 : Math.max(1, 12 - abs);
+
+      return {
+        ...img,
+        _index: index,
+        _delta: delta,
+        _abs: abs,
+        _isActive: isActive,
+        _x: x,
+        _y: y,
+        _scale: scale,
+        _opacity: opacity,
+        _rotateY: rotateY,
+        _zIndex: zIndex,
+      };
+    });
+  }, [images, currentIdx, count, isCompactLayout]);
 
   const handleHeroTouchStart = useCallback((e) => {
     const touch = e.touches?.[0];
@@ -118,15 +183,19 @@ export default function World() {
     }
   }, [goNext, goPrev]);
 
-  const handleHeroClick = useCallback((e) => {
+  const handleCardClick = useCallback((e, index, isActive) => {
     if (suppressNextClickRef.current) {
       e.preventDefault();
       e.stopPropagation();
       suppressNextClickRef.current = false;
       return;
     }
-    setGalleryOpen((prev) => !prev);
-  }, []);
+    if (isActive) {
+      setGalleryOpen((prev) => !prev);
+      return;
+    }
+    jumpTo(index);
+  }, [jumpTo]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -167,19 +236,6 @@ export default function World() {
 
   const currentImage = images[currentIdx];
 
-  const leftStrip = [];
-  const rightStrip = [];
-  if (count > 1) {
-    for (let i = 1; i <= Math.min(STRIP_VISIBLE_EACH_SIDE, count - 1); i++) {
-      const idx = (currentIdx - i + count) % count;
-      leftStrip.unshift(images[idx]);
-    }
-    for (let i = 1; i <= Math.min(STRIP_VISIBLE_EACH_SIDE, count - 1); i++) {
-      const idx = (currentIdx + i) % count;
-      rightStrip.push(images[idx]);
-    }
-  }
-
   if (loadingImages) {
     return (
       <div style={{ minHeight: '100vh', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13 }}>
@@ -207,52 +263,36 @@ export default function World() {
 
   return (
     <section className="wld">
-      <div className="wld-strip wld-strip-l">
-        {leftStrip.map((img, i) => (
-          <div
-            key={`l-${img.id || i}`}
-            onClick={() => jumpTo(images.indexOf(img))}
-            className="wld-th"
-          >
-            {img._src && <img src={img._src} alt="" draggable={false} loading="lazy" decoding="async" />}
-          </div>
-        ))}
-      </div>
-
       <div className="wld-center">
         <div
-          className={`wld-hero ${galleryOpen ? "wld-hero-open" : ""}`}
-          onClick={handleHeroClick}
+          className={`wld-track ${galleryOpen ? "wld-track-open" : ""}`}
           onTouchStart={handleHeroTouchStart}
           onTouchEnd={handleHeroTouchEnd}
           onTouchCancel={() => {
             touchStartRef.current = null;
             suppressNextClickRef.current = false;
           }}
-          role="button"
-          tabIndex={0}
-          aria-label={galleryOpen ? "Close world gallery" : "Open world gallery"}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setGalleryOpen((prev) => !prev);
-            }
-          }}
         >
-          <img src={currentImage?._src || ""} alt={currentImage?.caption || "World gallery"} draggable={false} loading="eager" fetchPriority="high" decoding="async" />
+          {carouselItems.map((img) => (
+            <button
+              key={`${img.id || img._index}-${img._virtualIndex}`}
+              type="button"
+              className={`wld-card ${img._isActive ? "wld-card-active" : "wld-card-passive"}`}
+              style={{
+                "--card-x": `${img._x}px`,
+                "--card-y": `${img._y}px`,
+                "--card-scale": img._scale,
+                "--card-opacity": img._opacity,
+                "--card-rotate": `${img._rotateY}deg`,
+                "--card-z": img._zIndex,
+              }}
+              onClick={(e) => handleCardClick(e, img._index, img._isActive)}
+              aria-label={img._isActive ? (galleryOpen ? "Close world gallery" : "Open world gallery") : `View world image ${img._index + 1}`}
+            >
+              {img._src && <img src={img._src} alt={img.caption || `World gallery image ${img._index + 1}`} draggable={false} loading={img._isActive ? "eager" : "lazy"} fetchPriority={img._isActive ? "high" : "auto"} decoding="async" />}
+            </button>
+          ))}
         </div>
-      </div>
-
-      <div className="wld-strip wld-strip-r">
-        {rightStrip.map((img, i) => (
-          <div
-            key={`r-${img.id || i}`}
-            onClick={() => jumpTo(images.indexOf(img))}
-            className="wld-th"
-          >
-            {img._src && <img src={img._src} alt="" draggable={false} loading="lazy" decoding="async" />}
-          </div>
-        ))}
       </div>
 
       {galleryOpen && (
@@ -305,62 +345,72 @@ export default function World() {
           perspective: 1400px;
         }
 
-        .wld-strip {
-          position: absolute;
-          top: 44%;
-          transform: translateY(-50%);
-          display: flex;
-          gap: 10px;
-          opacity: 0.78;
-          overflow: visible;
-          pointer-events: auto;
-        }
-        .wld-strip-l { right: calc(50% + min(150px, 13vw) + 18px); justify-content: flex-end; }
-        .wld-strip-r { left: calc(50% + min(150px, 13vw) + 18px); justify-content: flex-start; }
-
-        .wld-th {
-          width: 76px;
-          height: 104px;
-          border-radius: 8px;
-          overflow: hidden;
-          flex-shrink: 0;
-          cursor: pointer;
-          background: #ddd;
-          transform:
-            translateX(var(--thumb-shift, 0))
-            translateZ(calc(var(--thumb-shift, 0) * -0.35))
-            scale(var(--thumb-scale, 1));
-          opacity: var(--thumb-opacity, 0.82);
-          box-shadow: 0 10px 26px rgba(0,0,0,0.08);
-        }
-        .wld-th:hover {
-          opacity: 1;
-          box-shadow: 0 14px 32px rgba(0,0,0,0.14);
-        }
-        .wld-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
         .wld-center {
           position: relative;
           z-index: 2;
-          width: min(300px, 26vw);
-          height: min(480px, 60vh);
-          transform: translateY(-40px) translateZ(70px);
+          width: 100vw;
+          height: calc(var(--app-vh, 1vh) * 100);
+          transform: translateY(-70px) translateZ(70px) translateX(-10px);
+          overflow: visible;
         }
 
-        .wld-hero {
+        .wld-track {
           position: absolute;
           inset: 0;
-          border-radius: 10px;
+          overflow: visible;
+          transform-style: preserve-3d;
+        }
+
+        .wld-card {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 66px;
+          height: 88px;
+          border: 0;
+          padding: 0;
+          border-radius: 6px;
           overflow: hidden;
+          background: #ddd;
+          box-shadow: 0 10px 26px rgba(0,0,0,0.08);
+          cursor: pointer;
+          transform-style: preserve-3d;
+          transform:
+            translate3d(calc(-50% + var(--card-x, 0px)), calc(-50% + var(--card-y, 0px)), 0)
+            rotateY(var(--card-rotate, 0deg))
+            scale(var(--card-scale, 1));
+          opacity: var(--card-opacity, 1);
+          z-index: var(--card-z, 1);
+          transition:
+            transform 780ms cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 780ms cubic-bezier(0.22, 1, 0.36, 1),
+            box-shadow 780ms cubic-bezier(0.22, 1, 0.36, 1),
+            filter 780ms cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: transform, opacity;
+        }
+
+        .wld-card:hover {
+          box-shadow: 0 14px 32px rgba(0,0,0,0.14);
+          opacity: 1;
+        }
+
+        .wld-card-active {
           box-shadow: 0 26px 60px rgba(0, 0, 0, 0.16);
           background: #f0f0f0;
           display: flex;
           align-items: center;
           justify-content: center;
-          cursor: pointer;
         }
-        .wld-hero-open { box-shadow: 0 30px 72px rgba(0, 0, 0, 0.2); }
-        .wld-hero img {
+
+        .wld-card-passive {
+          filter: saturate(0.92) brightness(0.98);
+        }
+
+        .wld-track-open .wld-card-active {
+          box-shadow: 0 30px 72px rgba(0, 0, 0, 0.2);
+        }
+
+        .wld-card img {
           width: 100%;
           height: 100%;
           object-fit: cover;
@@ -383,7 +433,7 @@ export default function World() {
 
         .wld-panel-card {
           width: min(1040px, calc(100vw - 48px));
-          max-height: min(88vh, 860px);
+          max-height: min(calc(var(--app-vh, 1vh) * 88), 860px);
           overflow: auto;
           background: rgba(255, 255, 255, 0.78);
           border: 1px solid rgba(0, 0, 0, 0.08);
@@ -475,23 +525,24 @@ export default function World() {
         }
 
         @media (max-width: 900px) {
-          .wld-strip {
-            display: none;
-          }
-
           .wld-center {
-            width: min(88vw, 380px);
-            aspect-ratio: 4 / 5;
-            height: auto;
-            max-height: min(62vh, 500px);
-            transform: translateY(-78px);
+            width: 100vw;
+            height: calc(var(--app-vh, 1vh) * 100);
+            transform: translateY(-50px);
           }
 
-          .wld-hero {
-            border-radius: 14px;
+          .wld-card {
+            width: 60px;
+            height: 80px;
+            border-radius: 8px;
           }
 
-          .wld-hero img {
+          .wld-card-passive {
+            opacity: 0;
+            pointer-events: none;
+          }
+
+          .wld-card img {
             object-position: center top;
           }
 
