@@ -91,14 +91,20 @@ export default function EnhancedJoystick({ onArrowClick, menuOpen, setMenuOpen, 
           className="control-btn prev-btn"
           onClick={() => onArrowClick && onArrowClick(1)}
         >
-          ◀◀
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <polygon points="11,19 2,12 11,5" />
+            <polygon points="22,19 13,12 22,5" />
+          </svg>
         </button>
 
         <button
           className="control-btn next-btn"
           onClick={() => onArrowClick && onArrowClick(-1)}
         >
-          ▶▶
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <polygon points="13,19 22,12 13,5" />
+            <polygon points="2,19 11,12 2,5" />
+          </svg>
         </button>
 
         <button
