@@ -869,7 +869,7 @@ function MainApp() {
                         background: isImgSlide ? 'rgba(220,220,220,0.98)' : 'transparent',
                         transition: 'background 0.2s ease',
                         borderRadius: '0 0 6px 6px',
-                        paddingBottom: isMobileSizeLayout ? 18 : 0,
+                        paddingBottom: isMobileSizeLayout ? 36 : 0,
                       }}>
                         {/* Image overlay – covers the 3D canvas when on a photo slide */}
                         {isImgSlide && imgUrl && (
@@ -977,7 +977,7 @@ function MainApp() {
                   })()}
 
                   {/* Size + Add to Cart Area */}
-                  <div style={{ marginTop: 'auto', padding: '0 30px 55px 30px', pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.1s', position: 'relative', zIndex: 30 }} className={isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}>
+                    <div style={{ marginTop: 'auto', padding: '0 30px 55px 30px', pointerEvents: 'auto', animationDelay: isClosingHero ? '0s' : '0.1s', position: 'relative', zIndex: 30 }} className={isClosingHero ? 'damso-pop-down' : 'damso-pop-up'}>
                     {renderSizeSelector()}
                     <button className="hero-add-btn" onClick={() => {
                       if (selectedProduct.sizes?.length > 0 && !selectedSize) {
