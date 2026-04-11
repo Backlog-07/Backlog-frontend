@@ -938,7 +938,12 @@ function MainApp() {
                   setSnapTarget(raw - 1);
                   const newIdx = (((raw - 1) % products.length) + products.length) % products.length;
                   if (products[newIdx]) openProductView(products[newIdx]);
-                }}>◀◀</button>
+                }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <polygon points="11,19 2,12 11,5" />
+                    <polygon points="22,19 13,12 22,5" />
+                  </svg>
+                </button>
 
                 <button className="pill-btn pill-close-btn" onClick={handleCloseHero}>✕</button>
 
@@ -949,7 +954,12 @@ function MainApp() {
                   setSnapTarget(raw + 1);
                   const newIdx = (((raw + 1) % products.length) + products.length) % products.length;
                   if (products[newIdx]) openProductView(products[newIdx]);
-                }}>▶▶</button>
+                }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <polygon points="13,19 22,12 13,5" />
+                    <polygon points="2,19 11,12 2,5" />
+                  </svg>
+                </button>
               </div>
             </div>
 
