@@ -484,7 +484,7 @@ export default function World() {
             aspect-ratio: 4 / 5;
             height: auto;
             max-height: min(72vh, 560px);
-            transform: translateY(-4px);
+            transform: translateY(-22px);
           }
 
           .wld-hero {
