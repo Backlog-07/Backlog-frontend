@@ -22,7 +22,7 @@ export default function World() {
   const [loadingImages, setLoadingImages] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [galleryOpen, setGalleryOpen] = useState(false);
+
   const [isCompactLayout, setIsCompactLayout] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia(WORLD_LAYOUT_QUERY).matches;
@@ -73,16 +73,7 @@ export default function World() {
     return () => mediaQuery.removeListener(update);
   }, []);
 
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent("worldGalleryState", { detail: { open: galleryOpen } })
-    );
-    return () => {
-      window.dispatchEvent(
-        new CustomEvent("worldGalleryState", { detail: { open: false } })
-      );
-    };
-  }, [galleryOpen]);
+
 
   const navigate = useCallback(
     (dir) => {
@@ -106,6 +97,8 @@ export default function World() {
   const carouselItems = useMemo(() => {
     if (!count) return [];
 
+    const vwHalf = typeof window !== 'undefined' ? window.innerWidth / 2 : 195;
+
     const normalizeDelta = (index) => {
       let delta = index - currentIdx;
       const half = count / 2;
@@ -118,18 +111,21 @@ export default function World() {
       const delta = normalizeDelta(index);
       const abs = Math.abs(delta);
       const isActive = delta === 0;
+      const isPeek = isCompactLayout && abs === 1;
       const x = isActive
         ? 0
-        : Math.sign(delta) * (
-            (isCompactLayout ? 72 : 188) + (Math.max(abs - 1, 0) * (isCompactLayout ? 58 : 62))
-          );
+        : isPeek
+          ? Math.sign(delta) * (vwHalf * 0.9)
+          : Math.sign(delta) * (
+              (isCompactLayout ? vwHalf * 2 : 188) + (Math.max(abs - 1, 0) * (isCompactLayout ? 58 : 62))
+            );
       const y = 0;
       const scale = isActive
         ? (isCompactLayout ? 2.9 : 4.45)
-        : (isCompactLayout ? 0.11 : 0.78);
+        : (isPeek ? 0.75 : (isCompactLayout ? 0.11 : 0.78));
       const opacity = isActive
         ? 1
-        : (isCompactLayout ? 0 : Math.max(0.58, 0.94 - Math.min(abs, 7) * 0.018));
+        : (isPeek ? 0.55 : (isCompactLayout ? 0 : Math.max(0.58, 0.94 - Math.min(abs, 7) * 0.018)));
       const rotateY = 0;
       const zIndex = isActive ? 12 : Math.max(1, 12 - abs);
 
@@ -139,6 +135,7 @@ export default function World() {
         _delta: delta,
         _abs: abs,
         _isActive: isActive,
+        _isPeek: isPeek,
         _x: x,
         _y: y,
         _scale: scale,
@@ -191,7 +188,7 @@ export default function World() {
       return;
     }
     if (isActive) {
-      setGalleryOpen((prev) => !prev);
+      // Gallery panel removed as per request
       return;
     }
     jumpTo(index);
@@ -199,11 +196,6 @@ export default function World() {
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.key === "Escape" && galleryOpen) {
-        e.preventDefault();
-        setGalleryOpen(false);
-        return;
-      }
       if (e.key === "ArrowRight") {
         e.preventDefault();
         goNext();
@@ -214,7 +206,7 @@ export default function World() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [galleryOpen, goNext, goPrev]);
+  }, [goNext, goPrev]);
 
   useEffect(() => {
     const onStep = (e) => {
@@ -228,7 +220,7 @@ export default function World() {
 
   useEffect(() => {
     const onCenter = () => {
-      setGalleryOpen((prev) => !prev);
+      // Gallery panel toggle removed as per request
     };
     window.addEventListener("worldCenterClick", onCenter);
     return () => window.removeEventListener("worldCenterClick", onCenter);
@@ -265,7 +257,7 @@ export default function World() {
     <section className="wld">
       <div className="wld-center">
         <div
-          className={`wld-track ${galleryOpen ? "wld-track-open" : ""}`}
+          className="wld-track"
           onTouchStart={handleHeroTouchStart}
           onTouchEnd={handleHeroTouchEnd}
           onTouchCancel={() => {
@@ -275,9 +267,10 @@ export default function World() {
         >
           {carouselItems.map((img) => (
             <button
-              key={`${img.id || img._index}-${img._virtualIndex}`}
+              key={`${img.id || img._index}`}
               type="button"
               className={`wld-card ${img._isActive ? "wld-card-active" : "wld-card-passive"}`}
+              onClick={(e) => handleCardClick(e, img._index, img._isActive)}
               style={{
                 "--card-x": `${img._x}px`,
                 "--card-y": `${img._y}px`,
@@ -286,50 +279,19 @@ export default function World() {
                 "--card-rotate": `${img._rotateY}deg`,
                 "--card-z": img._zIndex,
               }}
-              onClick={(e) => handleCardClick(e, img._index, img._isActive)}
-              aria-label={img._isActive ? (galleryOpen ? "Close world gallery" : "Open world gallery") : `View world image ${img._index + 1}`}
             >
-              {img._src && <img src={img._src} alt={img.caption || `World gallery image ${img._index + 1}`} draggable={false} loading={img._isActive ? "eager" : "lazy"} fetchPriority={img._isActive ? "high" : "auto"} decoding="async" />}
+              <img
+                src={img._src}
+                alt={img.caption || "World gallery image"}
+                loading="lazy"
+                decoding="async"
+              />
             </button>
           ))}
         </div>
       </div>
 
-      {galleryOpen && (
-        <div className="wld-panel" onClick={() => setGalleryOpen(false)}>
-          <div className="wld-panel-card" onClick={(e) => e.stopPropagation()}>
-            <div className="wld-panel-head">
-              <div className="wld-panel-title">World Gallery</div>
-              <button className="wld-panel-close" onClick={() => setGalleryOpen(false)} aria-label="Close world gallery">
-                x
-              </button>
-            </div>
 
-            <div className="wld-panel-preview">
-              <img src={currentImage?._src || ""} alt={currentImage?.caption || "World gallery"} />
-            </div>
-
-            <div className="wld-panel-meta">
-              <div>{count} images</div>
-              <div>{currentIdx + 1} / {count}</div>
-            </div>
-
-            <div className="wld-panel-grid">
-              {images.map((img, idx) => (
-                <button
-                  key={img.id || idx}
-                  type="button"
-                  className={`wld-panel-thumb ${idx === currentIdx ? "is-active" : ""}`}
-                  onClick={() => jumpTo(idx)}
-                  aria-label={`View world image ${idx + 1}`}
-                >
-                  <img src={img._src || ""} alt={img.caption || `World image ${idx + 1}`} loading="lazy" decoding="async" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`
         .wld {
@@ -406,9 +368,7 @@ export default function World() {
           filter: saturate(0.92) brightness(0.98);
         }
 
-        .wld-track-open .wld-card-active {
-          box-shadow: 0 30px 72px rgba(0, 0, 0, 0.2);
-        }
+
 
         .wld-card img {
           width: 100%;
@@ -419,110 +379,7 @@ export default function World() {
           pointer-events: none;
         }
 
-        .wld-panel {
-          position: fixed;
-          inset: 0;
-          z-index: 8;
-          background: rgba(240, 240, 240, 0.84);
-          backdrop-filter: blur(12px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-        }
 
-        .wld-panel-card {
-          width: min(1040px, calc(100vw - 48px));
-          max-height: min(calc(var(--app-vh, 1vh) * 88), 860px);
-          overflow: auto;
-          background: rgba(255, 255, 255, 0.78);
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          box-shadow: 0 28px 80px rgba(0, 0, 0, 0.12);
-          border-radius: 24px;
-          padding: 20px;
-        }
-
-        .wld-panel-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          margin-bottom: 18px;
-        }
-
-        .wld-panel-title {
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: 0.22em;
-          text-transform: uppercase;
-        }
-
-        .wld-panel-close {
-          width: 36px;
-          height: 36px;
-          border: 0;
-          border-radius: 999px;
-          background: rgba(0, 0, 0, 0.08);
-          color: #111;
-          font-size: 14px;
-          cursor: pointer;
-        }
-
-        .wld-panel-preview {
-          aspect-ratio: 4 / 5;
-          width: min(320px, 100%);
-          border-radius: 18px;
-          overflow: hidden;
-          background: #e2e2e2;
-          margin: 0 auto 16px;
-        }
-
-        .wld-panel-preview img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-
-        .wld-panel-meta {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 18px;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: rgba(0, 0, 0, 0.62);
-        }
-
-        .wld-panel-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-          gap: 12px;
-        }
-
-        .wld-panel-thumb {
-          aspect-ratio: 4 / 5;
-          border: 0;
-          border-radius: 14px;
-          overflow: hidden;
-          padding: 0;
-          background: #ddd;
-          cursor: pointer;
-          box-shadow: inset 0 0 0 1px transparent;
-        }
-
-        .wld-panel-thumb.is-active {
-          box-shadow: inset 0 0 0 2px #111;
-        }
-
-        .wld-panel-thumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
 
         @media (max-width: 900px) {
           .wld-center {

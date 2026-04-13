@@ -1073,15 +1073,7 @@ function WorldApp() {
   // activeIndex not needed now that the bottom sheet is removed
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-  const [worldGalleryOpen, setWorldGalleryOpen] = useState(false);
 
-  useEffect(() => {
-    const onGalleryState = (e) => {
-      setWorldGalleryOpen(!!e?.detail?.open);
-    };
-    window.addEventListener('worldGalleryState', onGalleryState);
-    return () => window.removeEventListener('worldGalleryState', onGalleryState);
-  }, []);
 
   const [cart, setCart] = useState(() => readStoredCart());
   const cartItemCount = cart?.lines?.edges?.reduce((sum, edge) => sum + (edge.node.quantity || 0), 0) || 0;
@@ -1267,7 +1259,7 @@ function WorldApp() {
       </header>
 
       {/* Expanding Menu — wrapped in a separate div so inline opacity never fights the CSS animation */}
-      <div style={{ opacity: worldGalleryOpen ? 0 : 1, pointerEvents: worldGalleryOpen ? "none" : "auto", transition: "opacity 0.3s ease" }}>
+      <div style={{ opacity: 1, pointerEvents: "auto", transition: "opacity 0.3s ease" }}>
         <SiteMenu
           activePage="world"
           menuOpen={menuOpen}
@@ -1289,7 +1281,7 @@ function WorldApp() {
       <World offset={offset} products={products} onSelect={openBottomSheet} />
 
       {/* Enhanced Joystick */}
-      <div style={{ opacity: worldGalleryOpen ? 0 : 1, pointerEvents: worldGalleryOpen ? 'none' : 'auto', transition: 'opacity 0.3s ease' }}>
+      <div style={{ opacity: 1, pointerEvents: 'auto', transition: 'opacity 0.3s ease' }}>
         <EnhancedJoystick
           onDrag={handleJoystickDrag}
           onDragEnd={handleJoystickDragEnd}
