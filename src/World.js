@@ -226,7 +226,6 @@ export default function World() {
     return () => window.removeEventListener("worldCenterClick", onCenter);
   }, []);
 
-  const currentImage = images[currentIdx];
 
   if (loadingImages) {
     return (

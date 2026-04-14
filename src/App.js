@@ -1372,10 +1372,10 @@ function AboutApp() {
           <div className="about-copy-row">
             <div className="about-contact-block">
               <div className="about-contact-grid">
-                <p className="about-contact-item">22 Mercer Block, Ashford Quarter</p>
-                <p className="about-contact-item">Bengaluru, Karnataka 560001</p>
-                <p className="about-contact-item">+91 98765 43210</p>
-                <p className="about-contact-item">contact@backlogstudio.co</p>
+                <p className="about-contact-item">TIET Patiala</p>
+                <p className="about-contact-item">Nabha Road, Patiala</p>
+                <p className="about-contact-item">+91 90564 68217</p>
+                <p className="about-contact-item">customercare@backlogstore.in</p>
                 <p className="about-contact-item">Mon - Sat</p>
                 <p className="about-contact-item">10:00 AM - 7:00 PM</p>
               </div>

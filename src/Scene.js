@@ -136,7 +136,6 @@ export default function Scene({
 
   return (
     <Canvas
-    dpr={[1, 1.5]}
     frameloop="always"
     camera={
       previewCamera
