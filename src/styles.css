@@ -3728,16 +3728,16 @@ canvas {
   }
 
   .about-contact-block {
-    text-align: center;
+    text-align: left;
   }
 
   .about-contact-grid {
-    gap: 16px 24px;
-    justify-content: center;
+    gap: 12px;
+    justify-content: flex-start;
   }
 
   .about-contact-item {
-    font-size: clamp(0.7rem, 2vw, 0.8rem);
+    font-size: clamp(0.66rem, 2.2vw, 0.78rem);
   }
 }
 
@@ -3752,12 +3752,16 @@ canvas {
   }
 
   .about-contact-grid {
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    align-items: center;
   }
 
   .about-contact-item {
     font-size: 11px;
     letter-spacing: 0.5px;
+    flex: none;
+    text-align: left;
   }
 }
