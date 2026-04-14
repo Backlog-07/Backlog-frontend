@@ -407,7 +407,7 @@ export default function World() {
           .wld-center {
             width: 100vw;
             height: calc(var(--app-vh, 1vh) * 100);
-            transform: translateY(clamp(-100px, calc(var(--app-vh, 1vh) * -8.5), -70px));
+            transform: translateY(clamp(-30px, calc(var(--app-vh, 1vh) * -2), 0px));
           }
 
           .wld-card {
