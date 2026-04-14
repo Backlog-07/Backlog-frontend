@@ -121,7 +121,7 @@ export default function World() {
             );
       const y = 0;
       const scale = isActive
-        ? (isCompactLayout ? 4.3 : 4.45)
+        ? (isCompactLayout ? 4.1 : 4.45)
         : (isPeek ? 0.75 : (isCompactLayout ? 0.11 : 0.78));
       const opacity = isActive
         ? 1
@@ -407,7 +407,7 @@ export default function World() {
           .wld-center {
             width: 100vw;
             height: calc(var(--app-vh, 1vh) * 100);
-            transform: translateY(clamp(-130px, calc(var(--app-vh, 1vh) * -12), -90px));
+            transform: translateY(clamp(-100px, calc(var(--app-vh, 1vh) * -8.5), -70px));
           }
 
           .wld-card {
