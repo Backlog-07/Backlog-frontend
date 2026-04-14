@@ -1342,12 +1342,13 @@ canvas {
   z-index: 5;
   -webkit-tap-highlight-color: transparent;
   /* CLICK text styling — neo-minimalist */
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.85);
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
-  font-size: 8px;
-  font-weight: 300;
-  letter-spacing: 3.5px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 2.5px;
   text-transform: uppercase;
+  text-indent: 2.5px; /* offset the extra spacing on the last letter for perfect visual centering */
 }
 
 .center-btn:hover {
@@ -3709,7 +3710,7 @@ canvas {
 
 @media (max-width: 980px) {
   .about-shell {
-    padding: 90px 0 130px;
+    padding: 90px 0 250px;
   }
 
   .about-board {
@@ -3744,6 +3745,7 @@ canvas {
 @media (max-width: 600px) {
   .about-shell {
     padding-top: 100px;
+    padding-bottom: 280px;
   }
 
   .about-map-square {
