@@ -1361,7 +1361,7 @@ function AboutApp() {
             <div className="about-map-square">
               <iframe
                 title="Backlog company location"
-                src="https://www.openstreetmap.org/export/embed.html?bbox=77.5795%2C12.9645%2C77.6075%2C12.9815&layer=mapnik&marker=12.9730%2C77.5938"
+                src="https://www.openstreetmap.org/export/embed.html?bbox=76.3447%2C30.3464%2C76.3847%2C30.3664&layer=mapnik&marker=30.3564%2C76.3647"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />

@@ -121,7 +121,7 @@ export default function World() {
             );
       const y = 0;
       const scale = isActive
-        ? (isCompactLayout ? 2.9 : 4.45)
+        ? (isCompactLayout ? 3.8 : 4.45)
         : (isPeek ? 0.75 : (isCompactLayout ? 0.11 : 0.78));
       const opacity = isActive
         ? 1
@@ -285,9 +285,7 @@ export default function World() {
                 loading="lazy"
                 decoding="async"
               />
-              {img._isActive && (
-                <span className="wld-card-hint">TAP TO VIEW</span>
-              )}
+
             </button>
           ))}
         </div>

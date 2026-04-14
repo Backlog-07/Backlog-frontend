@@ -3643,7 +3643,7 @@ canvas {
 
 .about-contact-grid {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: clamp(14px, 2.3vw, 30px);
@@ -3728,14 +3728,35 @@ canvas {
   }
 
   .about-contact-block {
-    text-align: left;
+    text-align: center;
   }
 
   .about-contact-grid {
-    gap: 12px;
+    gap: 16px 24px;
+    justify-content: center;
   }
 
   .about-contact-item {
-    font-size: clamp(0.66rem, 2.2vw, 0.78rem);
+    font-size: clamp(0.7rem, 2vw, 0.8rem);
+  }
+}
+
+@media (max-width: 600px) {
+  .about-shell {
+    padding-top: 100px;
+  }
+
+  .about-map-square {
+    height: 240px;
+  }
+
+  .about-contact-grid {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .about-contact-item {
+    font-size: 11px;
+    letter-spacing: 0.5px;
   }
 }
