@@ -110,7 +110,9 @@ export default function EnhancedJoystick({ onArrowClick, menuOpen, setMenuOpen, 
         <button
           className="center-btn"
           onClick={() => onCenterClick && onCenterClick()}
-        />
+        >
+          CLICK
+        </button>
       </div>
     </div>
   );

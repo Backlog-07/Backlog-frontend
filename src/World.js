@@ -286,6 +286,9 @@ export default function World() {
                 loading="lazy"
                 decoding="async"
               />
+              {img._isActive && (
+                <span className="wld-card-hint">TAP TO VIEW</span>
+              )}
             </button>
           ))}
         </div>
@@ -362,6 +365,28 @@ export default function World() {
           display: flex;
           align-items: center;
           justify-content: center;
+          overflow: visible;
+        }
+
+        @keyframes wldHintFade {
+          0%, 100% { opacity: 0.55; transform: translateY(0px); }
+          50% { opacity: 1; transform: translateY(-3px); }
+        }
+
+        .wld-card-hint {
+          position: absolute;
+          bottom: -28px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(0, 0, 0, 0.55);
+          white-space: nowrap;
+          pointer-events: none;
+          animation: wldHintFade 2.4s ease-in-out infinite;
+          z-index: 20;
         }
 
         .wld-card-passive {
