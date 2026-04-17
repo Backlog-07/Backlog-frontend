@@ -63,7 +63,7 @@ function ensureBootLoader() {
   const percentEl = el.querySelector('.boot-percent');
   const progressEl = el.querySelector('.boot-progress');
   const fillEl = el.querySelector('.boot-progress-fill');
-  const DURATION = 2000;
+  const DURATION = 3500;
   const INTERVAL = 16;
   const steps = Math.round(DURATION / INTERVAL);
   let step = 0;
@@ -119,11 +119,11 @@ root.render(
   </React.StrictMode>
 );
 
-// Hide loader after the 2s progress animation completes.
+// Hide loader after the 3.5s progress animation completes.
 if (typeof window !== 'undefined') {
   window.setTimeout(() => {
     hideBootLoader();
-  }, 2300);
+  }, 3800);
 }
 
 // If you want to start measuring performance in your app, pass a function

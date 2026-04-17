@@ -619,7 +619,7 @@ function MainApp() {
       {/* Header */}
       {!selectedProduct && (
         <header className="header">
-          <div className="logo">Backlog</div>
+          <div className="logo" onClick={() => navigateTo("/")} style={{cursor: "pointer"}}>Backlog</div>
           <div className="nav">
             <span className="nav-text">
               {products[getActiveIndexFromOffset(offsetRef.current)]?.name || ""}
@@ -1249,7 +1249,7 @@ function WorldApp() {
     <div className="app">
       {/* Header */}
       <header className="header">
-        <div className="logo">Backlog</div>
+        <div className="logo" onClick={() => navigateTo("/")} style={{cursor: "pointer"}}>Backlog</div>
         <div className="nav">
           <span className="nav-text">
             {/* World page: keep header clean (no shifting product name) */}
@@ -1334,7 +1334,7 @@ function AboutApp() {
   return (
     <div className="app about-page">
       <header className="header">
-        <div className="logo">Backlog</div>
+        <div className="logo" onClick={() => navigateTo("/")} style={{cursor: "pointer"}}>Backlog</div>
         <div className="nav">
           <span className="nav-text">Brand manifesto</span>
         </div>
